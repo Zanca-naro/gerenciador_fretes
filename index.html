@@ -1,0 +1,3127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ZANCANARO Gestão de Transportes</title>
+<style>
+:root {
+  --asfalto: #1E2124;
+  --asfalto-2: #2A2E33;
+  --linha: #38424A;
+  --faixa: #F2B705;
+  --faixa-escura: #C99A00;
+  --azul-sinal: #2E77B5;
+  --verde-ok: #3E9B5C;
+  --vermelho-alerta: #C1432E;
+  --texto-claro: #F5F6F7;
+  --texto-suave: #A8B0B8;
+  --fundo-app: #F4F5F6;
+  --card: #FFFFFF;
+  --radius: 10px;
+  --font-display: Arial, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --font-mono: 'Consolas', 'Courier New', monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font-body); background: var(--fundo-app); color: #1B1E20; }
+.app-shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+.sidebar { background: var(--asfalto); color: var(--texto-claro); display: flex; flex-direction: column; padding: 24px 0; position: relative; }
+.sidebar::before { content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 6px; background: repeating-linear-gradient(to bottom, var(--faixa) 0px, var(--faixa) 18px, transparent 18px, transparent 34px); }
+.brand { padding: 0 24px 20px 24px; border-bottom: 1px solid var(--linha); margin-bottom: 12px; }
+.brand-title { font-family: var(--font-display); font-size: 26px; font-weight: 700; letter-spacing: 0.5px; line-height: 1; color: var(--texto-claro); }
+.brand-sub { font-size: 11px; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }
+.nav { display: flex; flex-direction: column; gap: 2px; padding: 0 12px; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 6px; color: var(--texto-suave); cursor: pointer; font-size: 14.5px; font-weight: 500; transition: background .15s, color .15s; user-select: none; }
+.nav-item .num { font-family: var(--font-mono); font-size: 11px; color: var(--faixa-escura); width: 18px; }
+.nav-item:hover { background: var(--asfalto-2); color: var(--texto-claro); }
+.nav-item.active { background: var(--faixa); color: #1B1E20; font-weight: 700; }
+.nav-item.active .num { color: #1B1E20; }
+.sidebar-footer { margin-top: auto; padding: 16px 24px 0 24px; font-size: 11px; color: var(--texto-suave); border-top: 1px solid var(--linha); }
+.main { padding: 28px 36px 60px 36px; max-width: 1180px; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 22px; flex-wrap: wrap; gap: 10px; }
+.page-title { font-family: var(--font-display); font-size: 30px; font-weight: 700; margin: 0; color: #14171A; }
+.page-sub { color: #6B747B; font-size: 13.5px; margin-top: 2px; }
+.fleet-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 26px; }
+.fleet-card { background: var(--card); border: 1px solid #E3E6E8; border-radius: var(--radius); padding: 12px 14px; position: relative; overflow: hidden; }
+.fleet-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+.fleet-card.status-ativo::before { background: var(--verde-ok); }
+.fleet-card.status-manutencao::before { background: var(--faixa); }
+.fleet-card.status-inativo::before { background: #B9C0C6; }
+.fleet-plate { font-family: var(--font-mono); font-weight: 700; font-size: 15px; letter-spacing: 0.5px; color: #14171A; }
+.fleet-model { font-size: 11.5px; color: #6B747B; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fleet-meta { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: #8A929A; }
+.status-pill { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 20px; }
+.status-pill.ativo { background: #E4F3E8; color: var(--verde-ok); }
+.status-pill.manutencao { background: #FBF0D2; color: var(--faixa-escura); }
+.status-pill.inativo { background: #EDEFF0; color: #74808A; }
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-5 { grid-template-columns: repeat(5, 1fr); }
+.card { background: var(--card); border: 1px solid #E3E6E8; border-radius: var(--radius); padding: 18px 20px; }
+.card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #6B747B; margin: 0 0 12px 0; display: flex; align-items: center; gap: 8px; }
+.kpi-value { font-family: var(--font-display); font-size: 34px; font-weight: 700; color: #14171A; line-height: 1; }
+.kpi-label { font-size: 12px; color: #8A929A; margin-top: 4px; }
+.alert-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #EEF0F1; font-size: 13.5px; }
+.alert-row:last-child { border-bottom: none; }
+.alert-tag { font-family: var(--font-mono); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+.alert-tag.vencido { background: #F8DEDA; color: var(--vermelho-alerta); }
+.alert-tag.urgente { background: #FBF0D2; color: var(--faixa-escura); }
+.alert-tag.ok { background: #E4F3E8; color: var(--verde-ok); }
+.empty-state { color: #9AA1A7; font-size: 13.5px; padding: 8px 0; }
+.table-wrap { background: var(--card); border: 1px solid #E3E6E8; border-radius: var(--radius); overflow: hidden; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+thead th { text-align: left; background: #FAFBFB; color: #6B747B; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 11px 14px; border-bottom: 1px solid #E3E6E8; white-space: nowrap; }
+tbody td { padding: 11px 14px; border-bottom: 1px solid #F0F1F2; color: #24282B; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #FBFCFC; }
+.row-actions { display: flex; gap: 6px; }
+.btn { font-family: var(--font-body); font-size: 13.5px; font-weight: 600; padding: 9px 16px; border-radius: 7px; border: none; cursor: pointer; transition: filter .15s, transform .1s; }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--azul-sinal); color: white; }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-accent { background: var(--faixa); color: #1B1E20; }
+.btn-accent:hover { filter: brightness(1.05); }
+.btn-ghost { background: transparent; border: 1px solid #D7DBDE; color: #4A5259; }
+.btn-ghost:hover { background: #F2F3F4; }
+.btn-danger { background: transparent; color: var(--vermelho-alerta); border: 1px solid #EFC9C2; }
+.btn-danger:hover { background: #FBEEEC; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(20,23,26,.55); display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px; overflow-y: auto; z-index: 100; }
+.modal { background: white; border-radius: 12px; width: 100%; max-width: 560px; padding: 26px 28px 22px 28px; }
+.modal-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; margin: 0 0 18px 0; color: #14171A; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+.form-field { display: flex; flex-direction: column; gap: 5px; }
+.form-field.full { grid-column: 1 / -1; }
+.form-field label { font-size: 12px; font-weight: 600; color: #4A5259; }
+.form-field input, .form-field select, .form-field textarea { font-family: var(--font-body); font-size: 14px; padding: 8px 10px; border: 1px solid #D7DBDE; border-radius: 6px; background: white; color: #1B1E20; }
+.form-field input:focus, .form-field select:focus, .form-field textarea:focus { outline: 2px solid var(--azul-sinal); outline-offset: 1px; border-color: var(--azul-sinal); }
+.form-field textarea { resize: vertical; min-height: 60px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #EEF0F1; }
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--asfalto); color: white; padding: 12px 18px; border-radius: 8px; font-size: 13.5px; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+.toast.error { background: var(--vermelho-alerta); }
+.toast.success { background: var(--verde-ok); }
+.mobile-bar { display: none; }
+@media (max-width: 900px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .sidebar.open { display: flex; position: fixed; inset: 0; z-index: 90; width: 100%; height: 100%; overflow-y: auto; }
+  .mobile-bar { display: flex; align-items: center; justify-content: space-between; background: var(--asfalto); color: white; padding: 14px 18px; }
+  .fleet-strip { grid-template-columns: repeat(2, 1fr); }
+  .grid-2, .grid-4, .grid-5 { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .main { padding: 20px 16px 60px 16px; }
+}
+button:focus-visible, .nav-item:focus-visible { outline: 2px solid var(--faixa); outline-offset: 2px; }
+.hidden { display: none !important; }
+.auth-screen { position: fixed; inset: 0; background: var(--asfalto); display: flex; align-items: center; justify-content: center; z-index: 500; padding: 20px; }
+.auth-card { background: white; border-radius: 14px; width: 100%; max-width: 400px; padding: 34px 32px 28px 32px; }
+.auth-brand { text-align: center; margin-bottom: 24px; }
+.auth-brand .brand-title { color: #14171A; font-size: 32px; }
+.auth-brand .brand-sub { color: #6B747B; }
+.auth-card .form-field { margin-bottom: 14px; }
+.auth-error { background: #F8DEDA; color: var(--vermelho-alerta); font-size: 13px; font-weight: 600; padding: 9px 12px; border-radius: 6px; margin-bottom: 14px; }
+.auth-info { background: #FBF0D2; color: var(--faixa-escura); font-size: 12.5px; padding: 9px 12px; border-radius: 6px; margin-bottom: 14px; line-height: 1.4; }
+.perm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; grid-column: 1 / -1; }
+.perm-grid label { display: flex; align-items: center; gap: 7px; font-size: 13px; color: #24282B; font-weight: 500; cursor: pointer; }
+.user-badge { font-size: 12px; color: var(--texto-claro); margin-bottom: 8px; }
+.tab-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.tab-chip { padding: 8px 16px; border-radius: 20px; border: 1px solid #D7DBDE; background: white; font-size: 13.5px; font-weight: 600; color: #4A5259; cursor: pointer; }
+.tab-chip:hover { background: #F2F3F4; }
+.tab-chip.active { background: var(--asfalto); color: white; border-color: var(--asfalto); }
+</style>
+</head>
+<body>
+
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="brand-title">ZANCANARO</div>
+      <div class="brand-sub">Gestão de Transportes</div>
+    </div>
+    <div id="auth-body"></div>
+  </div>
+</div>
+
+<div class="mobile-bar hidden" id="mobile-bar">
+  <strong>ZANCANARO</strong>
+  <button class="btn btn-ghost btn-sm" id="btn-menu">Menu</button>
+</div>
+
+<div class="app-shell hidden" id="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-title">ZANCANARO</div>
+      <div class="brand-sub">Gestão de Transportes</div>
+    </div>
+    <nav class="nav" id="nav">
+      <div class="nav-item active" data-view="dashboard"><span class="num">00</span> Painel</div>
+      <div class="nav-item" data-view="vehicles"><span class="num">01</span> Veículos</div>
+      <div class="nav-item" data-view="drivers"><span class="num">02</span> Motoristas</div>
+      <div class="nav-item" data-view="deliveries"><span class="num">03</span> Entregas</div>
+      <div class="nav-item" data-view="purchases"><span class="num">04</span> Compras</div>
+      <div class="nav-item" data-view="documents"><span class="num">05</span> Documentos</div>
+      <div class="nav-item" data-view="finance"><span class="num">06</span> Financeiro</div>
+      <div class="nav-item" data-view="commercial"><span class="num">07</span> Vendas</div>
+      <div class="nav-item" data-view="expenses"><span class="num">08</span> Outras Despesas</div>
+      <div class="nav-item" data-view="suppliers"><span class="num">09</span> Fornecedores</div>
+      <div class="nav-item" data-view="customers"><span class="num">10</span> Clientes</div>
+      <div class="nav-item" data-view="reports"><span class="num">11</span> Relatórios</div>
+      <div class="nav-item" data-view="users"><span class="num">12</span> Usuários</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-badge" id="user-badge"></div>
+      <button class="btn btn-ghost btn-sm" id="btn-logout" style="color:var(--texto-suave);border-color:var(--linha);width:100%;">Sair</button>
+      <div style="margin-top:10px;">Frota: 5 veículos · 3.500 kg cada<br>Dados salvos neste navegador</div>
+    </div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<script>
+/* ==================== CAMADA DE DADOS (localStorage) ==================== */
+const PREFIX = 'frota_';
+
+function dbGet(table) {
+  const raw = localStorage.getItem(PREFIX + table);
+  return raw ? JSON.parse(raw) : [];
+}
+function dbSet(table, items) {
+  localStorage.setItem(PREFIX + table, JSON.stringify(items));
+}
+function nextId(table) {
+  const key = PREFIX + 'seq_' + table;
+  const n = parseInt(localStorage.getItem(key) || '0', 10) + 1;
+  localStorage.setItem(key, String(n));
+  return n;
+}
+
+const Store = {
+  list(table) { return dbGet(table); },
+  get(table, id) { return dbGet(table).find(x => x.id === Number(id)); },
+  insert(table, obj) {
+    const items = dbGet(table);
+    obj.id = nextId(table);
+    items.push(obj);
+    dbSet(table, items);
+    return obj;
+  },
+  update(table, id, patch) {
+    const items = dbGet(table);
+    const idx = items.findIndex(x => x.id === Number(id));
+    if (idx === -1) return null;
+    items[idx] = { ...items[idx], ...patch };
+    dbSet(table, items);
+    return items[idx];
+  },
+  remove(table, id) {
+    dbSet(table, dbGet(table).filter(x => x.id !== Number(id)));
+  }
+};
+
+/* Seed inicial — só roda uma vez */
+if (!localStorage.getItem(PREFIX + 'seeded')) {
+  for (let i = 1; i <= 5; i++) {
+    Store.insert('vehicles', {
+      placa: `AAA-100${i}`,
+      modelo: `Veículo ${i} (editar modelo)`,
+      ano: 2022,
+      capacidade_kg: 3500,
+      km_atual: 0,
+      status: 'ativo',
+      observacoes: ''
+    });
+  }
+  localStorage.setItem(PREFIX + 'seeded', '1');
+}
+
+/* ==================== HELPERS ==================== */
+const main = document.getElementById('main');
+const nav = document.getElementById('nav');
+const state = { vehicles: [], drivers: [] };
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+function fmtMoney(v) {
+  return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function diasAte(dataStr) {
+  if (!dataStr) return null;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const alvo = new Date(dataStr + 'T00:00:00');
+  return Math.round((alvo - hoje) / 86400000);
+}
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+function closeModal() {
+  const overlay = document.querySelector('.modal-overlay');
+  if (overlay) overlay.remove();
+}
+function openModal(title, bodyHtml, onSubmit) {
+  closeModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3 class="modal-title">${title}</h3>
+      <form id="modal-form">
+        <div class="form-grid">${bodyHtml}</div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="modal-cancel">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('modal-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    onSubmit(Object.fromEntries(fd.entries()));
+  });
+  return overlay;
+}
+function optionsHtml(items, valueKey, labelFn, selected) {
+  return items.map(i => `<option value="${i[valueKey]}" ${String(selected) === String(i[valueKey]) ? 'selected' : ''}>${labelFn(i)}</option>`).join('');
+}
+
+function loadBaseData() {
+  state.vehicles = Store.list('vehicles');
+  state.drivers = Store.list('drivers');
+}
+
+const views = {};
+let viewAtual = 'dashboard';
+function setActiveNav(view) {
+  [...nav.children].forEach(el => el.classList.toggle('active', el.dataset.view === view));
+}
+function renderView(view) {
+  viewAtual = view;
+  setActiveNav(view);
+  loadBaseData();
+  views[view]();
+  document.getElementById('sidebar').classList.remove('open');
+}
+nav.addEventListener('click', (e) => {
+  const item = e.target.closest('.nav-item');
+  if (!item) return;
+  renderView(item.dataset.view);
+});
+document.getElementById('btn-menu').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+});
+
+/* ==================== PAINEL ==================== */
+views.dashboard = function () {
+  const vehicles = state.vehicles;
+  const drivers = state.drivers;
+  const maintenance = Store.list('maintenance');
+  const deliveries = Store.list('deliveries');
+  const documents = Store.list('documents');
+  const fuel = Store.list('fuel');
+
+  const resumo = {
+    total_veiculos: vehicles.length,
+    veiculos_ativos: vehicles.filter(v => v.status === 'ativo').length,
+    total_motoristas: drivers.length,
+    motoristas_ativos: drivers.filter(d => d.status === 'ativo').length,
+  };
+
+  const hoje = todayISO();
+  const entregasHoje = deliveries.filter(d => d.data === hoje && d.status !== 'cancelada').map(d => ({
+    ...d,
+    placa: Store.get('vehicles', d.vehicle_id)?.placa,
+    motorista_nome: Store.get('drivers', d.driver_id)?.nome
+  }));
+
+  const alertasManutencao = maintenance
+    .filter(m => m.proxima_data)
+    .map(m => ({ ...m, placa: Store.get('vehicles', m.vehicle_id)?.placa, dias_restantes: diasAte(m.proxima_data) }))
+    .filter(m => m.dias_restantes !== null && m.dias_restantes <= 15)
+    .sort((a, b) => a.dias_restantes - b.dias_restantes);
+
+  const alertasDocumentos = documents
+    .filter(d => d.validade)
+    .map(d => {
+      const label = d.entidade_tipo === 'veiculo'
+        ? (Store.get('vehicles', d.entidade_id) ? `${Store.get('vehicles', d.entidade_id).placa} - ${Store.get('vehicles', d.entidade_id).modelo}` : '(veículo removido)')
+        : (Store.get('drivers', d.entidade_id)?.nome || '(motorista removido)');
+      return { ...d, entidade_label: label, dias_restantes: diasAte(d.validade) };
+    })
+    .filter(d => d.dias_restantes !== null && d.dias_restantes <= 30)
+    .sort((a, b) => a.dias_restantes - b.dias_restantes);
+
+  const mesAtual = hoje.slice(0, 7);
+  const custoManutencaoMes = maintenance.filter(m => m.data && m.data.slice(0, 7) === mesAtual).reduce((s, m) => s + (Number(m.custo) || 0), 0);
+  const custoCombustivelMes = fuel.filter(f => f.data && f.data.slice(0, 7) === mesAtual).reduce((s, f) => s + (Number(f.valor_total) || 0), 0);
+
+  const fleetStrip = vehicles.map(v => `
+    <div class="fleet-card status-${v.status}">
+      <div class="fleet-plate">${v.placa}</div>
+      <div class="fleet-model">${v.modelo}</div>
+      <div class="fleet-meta">
+        <span>${Math.round(v.km_atual).toLocaleString('pt-BR')} km</span>
+        <span class="status-pill ${v.status}">${v.status}</span>
+      </div>
+    </div>
+  `).join('');
+
+  const alertTag = (dias) => dias < 0 ? `<span class="alert-tag vencido">VENCIDO</span>` : dias <= 7 ? `<span class="alert-tag urgente">${dias}d</span>` : `<span class="alert-tag ok">${dias}d</span>`;
+
+  const manutRows = alertasManutencao.length
+    ? alertasManutencao.map(m => `<div class="alert-row"><span>${m.placa || '—'} — ${m.descricao}</span>${alertTag(m.dias_restantes)}</div>`).join('')
+    : `<div class="empty-state">Nenhuma manutenção próxima nos próximos 15 dias.</div>`;
+
+  const docRows = alertasDocumentos.length
+    ? alertasDocumentos.map(d => `<div class="alert-row"><span>${d.entidade_label} — ${d.tipo_doc}</span>${alertTag(d.dias_restantes)}</div>`).join('')
+    : `<div class="empty-state">Nenhum documento vencendo nos próximos 30 dias.</div>`;
+
+  const entregasRows = entregasHoje.length
+    ? entregasHoje.map(e => `<div class="alert-row"><span>${e.placa || 'Sem veículo'} → ${e.destino} ${e.motorista_nome ? '· ' + e.motorista_nome : ''}</span><span class="status-pill ativo">${e.status.replace('_',' ')}</span></div>`).join('')
+    : `<div class="empty-state">Nenhuma entrega agendada para hoje.</div>`;
+
+  main.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Painel</h1>
+        <div class="page-sub">Visão geral da frota — ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}</div>
+      </div>
+    </div>
+    <div class="fleet-strip">${fleetStrip}</div>
+    <div class="grid grid-4" style="margin-bottom:16px;">
+      <div class="card"><p class="card-title">Veículos ativos</p><div class="kpi-value">${resumo.veiculos_ativos}/${resumo.total_veiculos}</div><div class="kpi-label">em operação</div></div>
+      <div class="card"><p class="card-title">Motoristas ativos</p><div class="kpi-value">${resumo.motoristas_ativos}/${resumo.total_motoristas}</div><div class="kpi-label">disponíveis</div></div>
+      <div class="card"><p class="card-title">Custo manutenção (mês)</p><div class="kpi-value" style="font-size:26px;">${fmtMoney(custoManutencaoMes)}</div></div>
+      <div class="card"><p class="card-title">Custo combustível (mês)</p><div class="kpi-value" style="font-size:26px;">${fmtMoney(custoCombustivelMes)}</div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card"><p class="card-title">⚠ Manutenções próximas</p>${manutRows}</div>
+      <div class="card"><p class="card-title">⚠ Documentos vencendo</p>${docRows}</div>
+    </div>
+    <div class="card" style="margin-top:16px;"><p class="card-title">Entregas de hoje</p>${entregasRows}</div>
+  `;
+};
+
+/* ==================== VEÍCULOS ==================== */
+function vehicleFormFields(v = {}) {
+  return `
+    <div class="form-field"><label>Placa</label><input name="placa" value="${v.placa || ''}" required placeholder="AAA-0000"></div>
+    <div class="form-field"><label>Modelo</label><input name="modelo" value="${v.modelo || ''}" required placeholder="Ex: VW Delivery"></div>
+    <div class="form-field"><label>Ano</label><input name="ano" type="number" value="${v.ano || ''}"></div>
+    <div class="form-field"><label>Capacidade (kg)</label><input name="capacidade_kg" type="number" value="${v.capacidade_kg ?? 3500}" required></div>
+    <div class="form-field"><label>Km atual</label><input name="km_atual" type="number" value="${v.km_atual ?? 0}"></div>
+    <div class="form-field"><label>Status</label>
+      <select name="status">
+        <option value="ativo" ${v.status === 'ativo' ? 'selected' : ''}>Ativo</option>
+        <option value="manutencao" ${v.status === 'manutencao' ? 'selected' : ''}>Em manutenção</option>
+        <option value="inativo" ${v.status === 'inativo' ? 'selected' : ''}>Inativo</option>
+      </select>
+    </div>
+    <div class="form-field full"><label>Observações</label><textarea name="observacoes">${v.observacoes || ''}</textarea></div>
+  `;
+}
+function openVehicleModal(vehicle) {
+  const isEdit = !!vehicle;
+  openModal(isEdit ? 'Editar veículo' : 'Novo veículo', vehicleFormFields(vehicle || {}), (payload) => {
+    payload.ano = payload.ano ? Number(payload.ano) : null;
+    payload.capacidade_kg = Number(payload.capacidade_kg);
+    payload.km_atual = Number(payload.km_atual);
+    if (isEdit) { Store.update('vehicles', vehicle.id, payload); toast('Veículo atualizado.'); }
+    else { Store.insert('vehicles', payload); toast('Veículo cadastrado.'); }
+    closeModal();
+    renderView('vehicles');
+  });
+}
+views.vehicles = function () {
+  const rows = state.vehicles.map(v => `
+    <tr>
+      <td><strong>${v.placa}</strong></td>
+      <td>${v.modelo}</td>
+      <td>${v.ano || '—'}</td>
+      <td>${v.capacidade_kg.toLocaleString('pt-BR')} kg</td>
+      <td>${Math.round(v.km_atual).toLocaleString('pt-BR')} km</td>
+      <td><span class="status-pill ${v.status}">${v.status}</span></td>
+      <td><div class="row-actions"><button class="btn btn-ghost btn-sm" data-edit="${v.id}">Editar</button><button class="btn btn-danger btn-sm" data-del="${v.id}">Excluir</button></div></td>
+    </tr>`).join('');
+
+  main.innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">Veículos</h1><div class="page-sub">${state.vehicles.length} veículos cadastrados</div></div>
+      <button class="btn btn-accent" id="btn-new">+ Novo veículo</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Placa</th><th>Modelo</th><th>Ano</th><th>Capacidade</th><th>Km atual</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="empty-state">Nenhum veículo cadastrado.</td></tr>`}</tbody>
+    </table></div>`;
+
+  document.getElementById('btn-new').addEventListener('click', () => openVehicleModal());
+  main.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => openVehicleModal(state.vehicles.find(x => x.id == btn.dataset.edit))));
+  main.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Excluir este veículo?')) return;
+    Store.remove('vehicles', btn.dataset.del);
+    toast('Veículo excluído.');
+    renderView('vehicles');
+  }));
+};
+
+/* ==================== MOTORISTAS ==================== */
+function driverFormFields(d = {}) {
+  return `
+    <div class="form-field full"><label>Nome completo</label><input name="nome" value="${d.nome || ''}" required></div>
+    <div class="form-field"><label>Nº CNH</label><input name="cnh_numero" value="${d.cnh_numero || ''}"></div>
+    <div class="form-field"><label>Categoria CNH</label><input name="cnh_categoria" value="${d.cnh_categoria || ''}" placeholder="Ex: D"></div>
+    <div class="form-field"><label>Validade CNH</label><input name="cnh_validade" type="date" value="${d.cnh_validade || ''}"></div>
+    <div class="form-field"><label>Telefone</label><input name="telefone" value="${d.telefone || ''}"></div>
+    <div class="form-field"><label>Status</label>
+      <select name="status">
+        <option value="ativo" ${d.status === 'ativo' ? 'selected' : ''}>Ativo</option>
+        <option value="ferias" ${d.status === 'ferias' ? 'selected' : ''}>Férias</option>
+        <option value="afastado" ${d.status === 'afastado' ? 'selected' : ''}>Afastado</option>
+        <option value="inativo" ${d.status === 'inativo' ? 'selected' : ''}>Inativo</option>
+      </select>
+    </div>`;
+}
+function openDriverModal(driver) {
+  const isEdit = !!driver;
+  openModal(isEdit ? 'Editar motorista' : 'Novo motorista', driverFormFields(driver || {}), (payload) => {
+    if (isEdit) { Store.update('drivers', driver.id, payload); toast('Motorista atualizado.'); }
+    else { Store.insert('drivers', payload); toast('Motorista cadastrado.'); }
+    closeModal();
+    renderView('drivers');
+  });
+}
+views.drivers = function () {
+  const rows = state.drivers.map(d => `
+    <tr>
+      <td><strong>${d.nome}</strong></td>
+      <td>${d.cnh_numero || '—'}</td>
+      <td>${d.cnh_categoria || '—'}</td>
+      <td>${fmtDate(d.cnh_validade)}</td>
+      <td>${d.telefone || '—'}</td>
+      <td><span class="status-pill ${d.status === 'ativo' ? 'ativo' : 'inativo'}">${d.status}</span></td>
+      <td><div class="row-actions"><button class="btn btn-ghost btn-sm" data-edit="${d.id}">Editar</button><button class="btn btn-danger btn-sm" data-del="${d.id}">Excluir</button></div></td>
+    </tr>`).join('');
+
+  main.innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">Motoristas</h1><div class="page-sub">${state.drivers.length} motoristas cadastrados</div></div>
+      <button class="btn btn-accent" id="btn-new">+ Novo motorista</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nome</th><th>CNH</th><th>Categoria</th><th>Validade CNH</th><th>Telefone</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="empty-state">Nenhum motorista cadastrado.</td></tr>`}</tbody>
+    </table></div>`;
+
+  document.getElementById('btn-new').addEventListener('click', () => openDriverModal());
+  main.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => openDriverModal(state.drivers.find(x => x.id == btn.dataset.edit))));
+  main.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Excluir este motorista?')) return;
+    Store.remove('drivers', btn.dataset.del);
+    toast('Motorista excluído.');
+    renderView('drivers');
+  }));
+};
+
+/* ==================== MANUTENÇÃO ==================== */
+function maintenanceFormFields(m = {}) {
+  return `
+    <div class="form-field"><label>Veículo</label>
+      <select name="vehicle_id" required><option value="">Selecione…</option>${optionsHtml(state.vehicles, 'id', v => `${v.placa} — ${v.modelo}`, m.vehicle_id)}</select>
+    </div>
+    <div class="form-field"><label>Tipo</label>
+      <select name="tipo">
+        <option value="preventiva" ${m.tipo === 'preventiva' ? 'selected' : ''}>Preventiva</option>
+        <option value="corretiva" ${m.tipo === 'corretiva' ? 'selected' : ''}>Corretiva</option>
+      </select>
+    </div>
+    <div class="form-field full"><label>Descrição do serviço</label><input name="descricao" value="${m.descricao || ''}" required placeholder="Ex: Troca de óleo e filtros"></div>
+    <div class="form-field"><label>Data</label><input name="data" type="date" value="${m.data || todayISO()}" required></div>
+    <div class="form-field"><label>Km no serviço</label><input name="km" type="number" value="${m.km ?? ''}"></div>
+    <div class="form-field"><label>Custo (R$)</label><input name="custo" type="number" step="0.01" value="${m.custo ?? 0}"></div>
+    ${supplierSelectField('Fornecedor (oficina)', m.oficina, 'oficina')}
+    <div class="form-field"><label>Status</label>
+      <select name="status">
+        <option value="concluida" ${m.status === 'concluida' ? 'selected' : ''}>Concluída</option>
+        <option value="agendada" ${m.status === 'agendada' ? 'selected' : ''}>Agendada</option>
+      </select>
+    </div>
+    <div class="form-field"><label>Próxima manutenção (data)</label><input name="proxima_data" type="date" value="${m.proxima_data || ''}"></div>
+    <div class="form-field"><label>Próxima manutenção (km)</label><input name="proxima_km" type="number" value="${m.proxima_km ?? ''}"></div>
+    ${m.pago === 'parcelado' ? `
+    <input type="hidden" name="pago" value="parcelado">
+    <div class="form-field full"><div style="font-size:12.5px;color:var(--faixa-escura);background:#FBF0D2;padding:8px 12px;border-radius:6px;">Pagamento parcelado — as parcelas ficam no Financeiro. Ao salvar, elas são recalculadas mantendo as já pagas.</div></div>
+    ` : `
+    <div class="form-field"><label>Pagamento</label>
+      <select name="pago">
+        <option value="sim" ${m.pago !== 'nao' ? 'selected' : ''}>À vista (pago)</option>
+        <option value="nao" ${m.pago === 'nao' ? 'selected' : ''}>A prazo (gera contas a pagar)</option>
+      </select>
+    </div>
+    <div class="form-field"><label>Nº de parcelas (1 a 12, se a prazo)</label><input name="num_parcelas" type="number" min="1" max="12" value="1"></div>
+    <div class="form-field"><label>Vencimento (ou 1º vencimento)</label><input name="primeiro_vencimento" type="date" value="${m.vencimento || ''}"></div>
+    `}`;
+}
+function openMaintenanceModal(record) {
+  const isEdit = !!record;
+  openModal(isEdit ? 'Editar manutenção' : 'Nova manutenção', maintenanceFormFields(record || {}), (payload) => {
+    payload.vehicle_id = Number(payload.vehicle_id);
+    payload.km = payload.km ? Number(payload.km) : null;
+    payload.custo = payload.custo ? Number(payload.custo) : 0;
+    payload.proxima_km = payload.proxima_km ? Number(payload.proxima_km) : null;
+    const aPrazo = payload.pago === 'nao' && payload.custo > 0;
+    const n = Math.min(12, Math.max(1, Number(payload.num_parcelas) || 1));
+    const primeiro = payload.primeiro_vencimento || payload.data;
+    payload.vencimento = primeiro;
+    if (isEdit) {
+      if (record.pago === 'parcelado') {
+        payload.pago = 'parcelado';
+        payload.vencimento = record.vencimento;
+      }
+      Store.update('maintenance', record.id, payload);
+      if (record.pago === 'parcelado') {
+        const antigas = Store.list('finance').filter(l => l.ref_tabela === 'maintenance' && l.ref_id === record.id)
+          .sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+        const nAnt = antigas.length || 1;
+        antigas.forEach(l => Store.remove('finance', l.id));
+        const placa = (Store.get('vehicles', payload.vehicle_id) || {}).placa || '';
+        gerarParcelas(payload.custo, nAnt, record.vencimento || payload.data, antigas).forEach(p => {
+          Store.insert('finance', {
+            tipo: 'despesa', origem: 'compra', ref_tabela: 'maintenance', ref_id: record.id,
+            categoria: 'Manutenção', fornecedor: payload.oficina || '—',
+            descricao: `${payload.oficina ? payload.oficina + ': ' : ''}${payload.descricao} — ${placa}${nAnt > 1 ? ` (parcela ${p.num}/${nAnt})` : ''}`,
+            valor: p.valor, data: p.data, pago: p.pago, vehicle_id: payload.vehicle_id
+          });
+        });
+        toast('Manutenção atualizada — parcelas recalculadas.');
+      } else {
+        toast('Manutenção atualizada.');
+      }
+    } else {
+      if (aPrazo) payload.pago = 'parcelado';
+      const rec = Store.insert('maintenance', payload);
+      if (payload.km) {
+        const v = Store.get('vehicles', payload.vehicle_id);
+        if (v && payload.km > v.km_atual) Store.update('vehicles', v.id, { km_atual: payload.km });
+      }
+      if (aPrazo) {
+        const placa = (Store.get('vehicles', payload.vehicle_id) || {}).placa || '';
+        gerarParcelas(payload.custo, n, primeiro, null).forEach(p => {
+          Store.insert('finance', {
+            tipo: 'despesa', origem: 'compra', ref_tabela: 'maintenance', ref_id: rec.id,
+            categoria: 'Manutenção', fornecedor: payload.oficina || '—',
+            descricao: `${payload.oficina ? payload.oficina + ': ' : ''}${payload.descricao} — ${placa}${n > 1 ? ` (parcela ${p.num}/${n})` : ''}`,
+            valor: p.valor, data: p.data, pago: 'nao', vehicle_id: payload.vehicle_id
+          });
+        });
+        toast(n > 1 ? `Manutenção em ${n}x — contas a pagar geradas.` : 'Manutenção registrada — conta a pagar gerada.');
+      } else {
+        toast('Manutenção registrada.');
+      }
+    }
+    closeModal();
+    renderView('purchases');
+  });
+}
+/* ==================== ENTREGAS ==================== */
+function deliveryFormFields(d = {}) {
+  return `
+    <div class="form-field"><label>Data</label><input name="data" type="date" value="${d.data || todayISO()}" required></div>
+    <div class="form-field"><label>Veículo</label>
+      <select name="vehicle_id"><option value="">A definir</option>${optionsHtml(state.vehicles, 'id', v => `${v.placa} (cap. ${v.capacidade_kg}kg)`, d.vehicle_id)}</select>
+    </div>
+    <div class="form-field"><label>Motorista</label>
+      <select name="driver_id"><option value="">A definir</option>${optionsHtml(state.drivers, 'id', dr => dr.nome, d.driver_id)}</select>
+    </div>
+    <div class="form-field"><label>Peso da carga (kg)</label><input name="peso_kg" type="number" step="0.1" value="${d.peso_kg ?? ''}"></div>
+    <div class="form-field"><label>Origem</label><input name="origem" value="${d.origem || ''}"></div>
+    <div class="form-field"><label>Destino</label><input name="destino" value="${d.destino || ''}" required></div>
+    <div class="form-field full"><label>Descrição da carga</label><input name="descricao_carga" value="${d.descricao_carga || ''}"></div>
+    <div class="form-field"><label>Status</label>
+      <select name="status">
+        <option value="agendada" ${d.status === 'agendada' ? 'selected' : ''}>Agendada</option>
+        <option value="em_andamento" ${d.status === 'em_andamento' ? 'selected' : ''}>Em andamento</option>
+        <option value="concluida" ${d.status === 'concluida' ? 'selected' : ''}>Concluída</option>
+        <option value="cancelada" ${d.status === 'cancelada' ? 'selected' : ''}>Cancelada</option>
+      </select>
+    </div>
+    <div class="form-field full"><label>Observações</label><textarea name="observacoes">${d.observacoes || ''}</textarea></div>`;
+}
+function openDeliveryModal(record) {
+  const isEdit = !!record;
+  openModal(isEdit ? 'Editar entrega' : 'Nova entrega', deliveryFormFields(record || {}), (payload) => {
+    payload.vehicle_id = payload.vehicle_id ? Number(payload.vehicle_id) : null;
+    payload.driver_id = payload.driver_id ? Number(payload.driver_id) : null;
+    payload.peso_kg = payload.peso_kg ? Number(payload.peso_kg) : null;
+    let aviso = null;
+    if (payload.vehicle_id && payload.peso_kg) {
+      const v = Store.get('vehicles', payload.vehicle_id);
+      if (v && payload.peso_kg > v.capacidade_kg) aviso = `Atenção: carga de ${payload.peso_kg}kg excede a capacidade do veículo (${v.capacidade_kg}kg).`;
+    }
+    if (isEdit) { Store.update('deliveries', record.id, payload); toast('Entrega atualizada.'); }
+    else { Store.insert('deliveries', payload); toast('Entrega cadastrada.'); }
+    if (aviso) toast(aviso, 'error');
+    closeModal();
+    renderView('deliveries');
+  });
+}
+const statusLabel = { agendada: 'Agendada', em_andamento: 'Em andamento', concluida: 'Concluída', cancelada: 'Cancelada' };
+views.deliveries = function () {
+  const records = Store.list('deliveries').map(e => ({
+    ...e,
+    placa: Store.get('vehicles', e.vehicle_id)?.placa,
+    motorista_nome: Store.get('drivers', e.driver_id)?.nome
+  })).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+
+  const rows = records.map(e => {
+    const veh = Store.get('vehicles', e.vehicle_id);
+    const overload = e.peso_kg && veh && e.peso_kg > veh.capacidade_kg;
+    return `<tr>
+      <td>${fmtDate(e.data)}</td>
+      <td>${e.placa || '—'}</td>
+      <td>${e.motorista_nome || '—'}</td>
+      <td>${e.origem || '—'} → <strong>${e.destino}</strong></td>
+      <td>${e.peso_kg ? e.peso_kg + ' kg' : '—'} ${overload ? '<span class="alert-tag vencido" title="Excede capacidade">⚠</span>' : ''}</td>
+      <td><span class="status-pill ${e.status === 'concluida' ? 'ativo' : e.status === 'cancelada' ? 'inativo' : 'manutencao'}">${statusLabel[e.status]}</span></td>
+      <td><div class="row-actions"><button class="btn btn-ghost btn-sm" data-edit="${e.id}">Editar</button><button class="btn btn-danger btn-sm" data-del="${e.id}">Excluir</button></div></td>
+    </tr>`;
+  }).join('');
+
+  main.innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">Entregas</h1><div class="page-sub">${records.length} registros</div></div>
+      <button class="btn btn-accent" id="btn-new">+ Nova entrega</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Data</th><th>Veículo</th><th>Motorista</th><th>Rota</th><th>Carga</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="empty-state">Nenhuma entrega registrada.</td></tr>`}</tbody>
+    </table></div>`;
+
+  document.getElementById('btn-new').addEventListener('click', () => openDeliveryModal());
+  main.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => openDeliveryModal(records.find(x => x.id == btn.dataset.edit))));
+  main.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Excluir esta entrega?')) return;
+    Store.remove('deliveries', btn.dataset.del);
+    toast('Entrega excluída.');
+    renderView('deliveries');
+  }));
+};
+
+/* ==================== COMBUSTÍVEL ==================== */
+function fuelFormFields(f = {}) {
+  return `
+    <div class="form-field"><label>Veículo</label><select name="vehicle_id" required><option value="">Selecione…</option>${optionsHtml(state.vehicles, 'id', v => v.placa, f.vehicle_id)}</select></div>
+    <div class="form-field"><label>Motorista</label><select name="driver_id"><option value="">—</option>${optionsHtml(state.drivers, 'id', dr => dr.nome, f.driver_id)}</select></div>
+    <div class="form-field"><label>Data</label><input name="data" type="date" value="${f.data || todayISO()}" required></div>
+    <div class="form-field"><label>Litros</label><input name="litros" type="number" step="0.01" value="${f.litros ?? ''}" required></div>
+    <div class="form-field"><label>Valor total (R$)</label><input name="valor_total" type="number" step="0.01" value="${f.valor_total ?? ''}" required></div>
+    <div class="form-field"><label>Odômetro (km)</label><input name="odometro" type="number" value="${f.odometro ?? ''}"></div>
+    ${supplierSelectField('Fornecedor (posto)', f.posto, 'posto')}
+    ${f.pago === 'parcelado' ? `
+    <input type="hidden" name="pago" value="parcelado">
+    <div class="form-field full"><div style="font-size:12.5px;color:var(--faixa-escura);background:#FBF0D2;padding:8px 12px;border-radius:6px;">Pagamento parcelado — as parcelas ficam no Financeiro. Ao salvar, elas são recalculadas mantendo as já pagas.</div></div>
+    ` : `
+    <div class="form-field"><label>Pagamento</label>
+      <select name="pago">
+        <option value="sim" ${f.pago !== 'nao' ? 'selected' : ''}>À vista (pago)</option>
+        <option value="nao" ${f.pago === 'nao' ? 'selected' : ''}>A prazo (gera contas a pagar)</option>
+      </select>
+    </div>
+    <div class="form-field"><label>Nº de parcelas (1 a 12, se a prazo)</label><input name="num_parcelas" type="number" min="1" max="12" value="1"></div>
+    <div class="form-field"><label>Vencimento (ou 1º vencimento)</label><input name="primeiro_vencimento" type="date" value="${f.vencimento || ''}"></div>
+    `}`;
+}
+function openFuelModal(record) {
+  const isEdit = !!record;
+  openModal(isEdit ? 'Editar abastecimento' : 'Novo abastecimento', fuelFormFields(record || {}), (payload) => {
+    payload.vehicle_id = Number(payload.vehicle_id);
+    payload.driver_id = payload.driver_id ? Number(payload.driver_id) : null;
+    payload.litros = Number(payload.litros);
+    payload.valor_total = Number(payload.valor_total);
+    payload.odometro = payload.odometro ? Number(payload.odometro) : null;
+    const placa = (Store.get('vehicles', payload.vehicle_id) || {}).placa || '';
+    const descParcela = (num, total) => `${payload.posto ? payload.posto + ': ' : ''}Combustível ${placa} (${payload.litros} L)${total > 1 ? ` (parcela ${num}/${total})` : ''}`;
+
+    if (isEdit && record.pago === 'parcelado') {
+      payload.pago = 'parcelado';
+      payload.vencimento = record.vencimento;
+      Store.update('fuel', record.id, payload);
+      const antigas = Store.list('finance').filter(l => l.ref_tabela === 'fuel' && l.ref_id === record.id)
+        .sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+      const n = antigas.length || 1;
+      antigas.forEach(l => Store.remove('finance', l.id));
+      gerarParcelas(payload.valor_total, n, record.vencimento || payload.data, antigas).forEach(p => {
+        Store.insert('finance', {
+          tipo: 'despesa', origem: 'compra', ref_tabela: 'fuel', ref_id: record.id,
+          categoria: 'Combustível', fornecedor: payload.posto || '—',
+          descricao: descParcela(p.num, n), valor: p.valor, data: p.data, pago: p.pago, vehicle_id: payload.vehicle_id
+        });
+      });
+      toast('Abastecimento atualizado — parcelas recalculadas.');
+    } else {
+      const aPrazo = payload.pago === 'nao';
+      const n = Math.min(12, Math.max(1, Number(payload.num_parcelas) || 1));
+      const primeiro = payload.primeiro_vencimento || payload.data;
+      payload.vencimento = primeiro;
+      if (aPrazo) payload.pago = 'parcelado';
+      let rec;
+      if (isEdit) { Store.update('fuel', record.id, payload); rec = { id: record.id }; }
+      else rec = Store.insert('fuel', payload);
+      if (payload.odometro) {
+        const v = Store.get('vehicles', payload.vehicle_id);
+        if (v && payload.odometro > v.km_atual) Store.update('vehicles', v.id, { km_atual: payload.odometro });
+      }
+      if (aPrazo) {
+        gerarParcelas(payload.valor_total, n, primeiro, null).forEach(p => {
+          Store.insert('finance', {
+            tipo: 'despesa', origem: 'compra', ref_tabela: 'fuel', ref_id: rec.id,
+            categoria: 'Combustível', fornecedor: payload.posto || '—',
+            descricao: descParcela(p.num, n), valor: p.valor, data: p.data, pago: 'nao', vehicle_id: payload.vehicle_id
+          });
+        });
+        toast(n > 1 ? `Abastecimento em ${n}x — contas a pagar geradas.` : 'Abastecimento registrado — conta a pagar gerada.');
+      } else {
+        toast(isEdit ? 'Abastecimento atualizado.' : 'Abastecimento registrado.');
+      }
+    }
+    closeModal();
+    renderView('purchases');
+  });
+}
+
+/* ==================== COMPRAS (combustível + manutenção + compras gerais) ==================== */
+const CATEGORIAS_COMPRA = ['Peças', 'Pneus', 'Lubrificantes', 'Material', 'Insumos', 'Serviços', 'Outros'];
+let purchasesTab = 'fuel';
+
+function purchaseFormFields(c = {}) {
+  return `
+    ${supplierSelectField('Fornecedor', c.fornecedor, 'fornecedor')}
+    <div class="form-field"><label>Categoria</label>
+      <select name="categoria">${CATEGORIAS_COMPRA.map(cat => `<option value="${cat}" ${c.categoria === cat ? 'selected' : ''}>${cat}</option>`).join('')}</select>
+    </div>
+    <div class="form-field full"><label>Descrição</label><input name="descricao" value="${c.descricao || ''}" required placeholder="Ex: Jogo de pastilhas de freio"></div>
+    <div class="form-field"><label>Veículo (opcional)</label>
+      <select name="vehicle_id"><option value="">—</option>${optionsHtml(state.vehicles, 'id', v => v.placa, c.vehicle_id)}</select>
+    </div>
+    <div class="form-field"><label>Valor total (R$)</label><input name="valor" type="number" step="0.01" min="0" value="${c.valor ?? ''}" required></div>
+    ${c.id ? '' : `
+    <div class="form-field"><label>Pagamento</label>
+      <select name="pago">
+        <option value="sim">À vista (pago)</option>
+        <option value="nao" selected>A prazo (conta a pagar)</option>
+      </select>
+    </div>
+    `}
+    <div class="form-field"><label>Nº de parcelas (1 a 12)</label><input name="num_parcelas" type="number" min="1" max="12" value="${c.num_parcelas || 1}"></div>
+    <div class="form-field"><label>Vencimento (ou 1º vencimento)</label><input name="primeiro_vencimento" type="date" value="${c.primeiro_vencimento || todayISO()}" required></div>
+    ${c.id ? `<div class="form-field full"><div style="font-size:12.5px;color:var(--faixa-escura);background:#FBF0D2;padding:8px 12px;border-radius:6px;">Ao salvar, as parcelas no Financeiro são recalculadas mantendo as já pagas.</div></div>` : ''}
+    <div class="form-field full"><label>Observações</label><textarea name="observacoes">${c.observacoes || ''}</textarea></div>`;
+}
+
+function openPurchaseModal(compra) {
+  const isEdit = !!(compra && compra.id);
+  openModal(isEdit ? 'Editar compra' : 'Nova compra', purchaseFormFields(compra || {}), (payload) => {
+    const valor = Number(payload.valor);
+    const n = Math.min(12, Math.max(1, Number(payload.num_parcelas) || 1));
+    const parcelas = gerarParcelas(valor, n, payload.primeiro_vencimento, isEdit ? compra._irmas : null);
+    const grupo = isEdit ? (compra._irmas[0].grupo || 'cg' + Date.now()) : 'cg' + Date.now();
+    if (isEdit) compra._irmas.forEach(l => Store.remove('finance', l.id));
+    parcelas.forEach(p => {
+      Store.insert('finance', {
+        tipo: 'despesa', origem: 'compra', grupo, categoria: payload.categoria,
+        fornecedor: payload.fornecedor,
+        descricao: `${payload.fornecedor}: ${payload.descricao}${n > 1 ? ` (parcela ${p.num}/${n})` : ''}`,
+        valor: p.valor, data: p.data,
+        pago: isEdit ? p.pago : (n > 1 ? 'nao' : payload.pago),
+        vehicle_id: payload.vehicle_id ? Number(payload.vehicle_id) : null,
+        observacoes: payload.observacoes || ''
+      });
+    });
+    toast(isEdit
+      ? 'Compra atualizada — parcelas recalculadas.'
+      : (n > 1 ? `Compra lançada em ${n}x de ${fmtMoney(parcelas[0].valor)}.` : (payload.pago === 'nao' ? 'Compra lançada — conta a pagar gerada.' : 'Compra lançada.')));
+    closeModal();
+    renderView('purchases');
+  });
+}
+
+function situacaoPgtoTag(pago, venc) {
+  if (pago === 'parcelado') return '<span class="status-pill manutencao">Parcelado</span>';
+  if (pago !== 'nao') return '<span class="status-pill ativo">Pago</span>';
+  const d = diasAte(venc);
+  if (d !== null && d < 0) return `<span class="alert-tag vencido">Vencida há ${Math.abs(d)}d</span>`;
+  if (d !== null && d <= 7) return `<span class="alert-tag urgente">${d}d</span>`;
+  return '<span class="status-pill manutencao">A pagar</span>';
+}
+
+views.purchases = function (tab) {
+  if (tab) purchasesTab = tab;
+  tab = purchasesTab;
+
+  const fuel = Store.list('fuel');
+  const maint = Store.list('maintenance');
+  const gerais = Store.list('finance').filter(l => l.origem === 'compra');
+
+  const parcelasVinc = (tabela) => gerais.filter(l => l.ref_tabela === tabela && l.pago === 'nao').reduce((s, l) => s + Number(l.valor), 0);
+  const pendFuel = fuel.filter(f => f.pago === 'nao').reduce((s, f) => s + Number(f.valor_total), 0) + parcelasVinc('fuel');
+  const pendMaint = maint.filter(m => m.pago === 'nao' && Number(m.custo) > 0).reduce((s, m) => s + Number(m.custo), 0) + parcelasVinc('maintenance');
+  const pendGerais = gerais.filter(l => l.pago === 'nao' && !l.ref_tabela).reduce((s, l) => s + Number(l.valor), 0);
+  const totalPend = pendFuel + pendMaint + pendGerais;
+
+  const mesAtual = todayISO().slice(0, 7);
+  const comprasMes = fuel.filter(f => f.data && f.data.slice(0, 7) === mesAtual).reduce((s, f) => s + Number(f.valor_total), 0)
+    + maint.filter(m => m.data && m.data.slice(0, 7) === mesAtual).reduce((s, m) => s + (Number(m.custo) || 0), 0)
+    + gerais.filter(l => l.data && l.data.slice(0, 7) === mesAtual).reduce((s, l) => s + Number(l.valor), 0);
+
+  const chip = (key, label) => `<button class="tab-chip ${tab === key ? 'active' : ''}" data-tab="${key}">${label}</button>`;
+
+  let btnLabel, contentHtml;
+
+  if (tab === 'fuel') {
+    btnLabel = '+ Novo abastecimento';
+    const records = fuel.map(f => ({
+      ...f,
+      placa: (Store.get('vehicles', f.vehicle_id) || {}).placa,
+      motorista_nome: (Store.get('drivers', f.driver_id) || {}).nome
+    })).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+    const rows = records.map(f => `
+      <tr>
+        <td>${fmtDate(f.data)}</td>
+        <td><strong>${f.placa || '—'}</strong></td>
+        <td>${f.motorista_nome || '—'}</td>
+        <td>${f.litros.toLocaleString('pt-BR')} L</td>
+        <td>${fmtMoney(f.valor_total)}</td>
+        <td>${(f.valor_total / f.litros).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/L</td>
+        <td>${situacaoPgtoTag(f.pago, f.vencimento || f.data)}</td>
+        <td><div class="row-actions">
+          ${f.pago === 'nao' ? `<button class="btn btn-primary btn-sm" data-pagar-fuel="${f.id}">✓ Pagar</button>` : ''}
+          <button class="btn btn-ghost btn-sm" data-edit-fuel="${f.id}">Editar</button>
+          <button class="btn btn-danger btn-sm" data-del-fuel="${f.id}" title="Excluir compra">🗑</button>
+        </div></td>
+      </tr>`).join('');
+    contentHtml = `<div class="table-wrap"><table>
+      <thead><tr><th>Data</th><th>Veículo</th><th>Motorista</th><th>Litros</th><th>Valor</th><th>R$/L</th><th>Situação</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="8" class="empty-state">Nenhum abastecimento registrado.</td></tr>`}</tbody>
+    </table></div>`;
+  } else if (tab === 'maintenance') {
+    btnLabel = '+ Nova manutenção';
+    const records = maint.map(m => ({ ...m, placa: (Store.get('vehicles', m.vehicle_id) || {}).placa })).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+    const rows = records.map(m => `
+      <tr>
+        <td>${fmtDate(m.data)}</td>
+        <td><strong>${m.placa || '—'}</strong></td>
+        <td>${m.tipo}</td>
+        <td>${m.descricao}${m.oficina ? `<br><span style="font-size:11px;color:#8A929A;">${m.oficina}</span>` : ''}</td>
+        <td>${fmtMoney(m.custo)}</td>
+        <td>${m.proxima_data ? fmtDate(m.proxima_data) : (m.proxima_km ? m.proxima_km + ' km' : '—')}</td>
+        <td>${Number(m.custo) > 0 ? situacaoPgtoTag(m.pago, m.vencimento || m.data) : '—'}</td>
+        <td><div class="row-actions">
+          ${m.pago === 'nao' && Number(m.custo) > 0 ? `<button class="btn btn-primary btn-sm" data-pagar-maint="${m.id}">✓ Pagar</button>` : ''}
+          <button class="btn btn-ghost btn-sm" data-edit-maint="${m.id}">Editar</button>
+          <button class="btn btn-danger btn-sm" data-del-maint="${m.id}" title="Excluir compra">🗑</button>
+        </div></td>
+      </tr>`).join('');
+    contentHtml = `<div class="table-wrap"><table>
+      <thead><tr><th>Data</th><th>Veículo</th><th>Tipo</th><th>Descrição</th><th>Custo</th><th>Próxima</th><th>Situação</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="8" class="empty-state">Nenhuma manutenção registrada.</td></tr>`}</tbody>
+    </table></div>`;
+  } else {
+    btnLabel = '+ Nova compra';
+    // Uma linha por compra — o detalhamento das parcelas fica no Financeiro (Lançamentos e Fluxo de Caixa)
+    const soGerais = gerais.filter(l => !l.ref_tabela);
+    const grupos = {};
+    soGerais.forEach(l => {
+      const chave = l.grupo || 'solo-' + l.id;
+      (grupos[chave] = grupos[chave] || []).push(l);
+    });
+    const compras = Object.values(grupos).map(parcelas => {
+      parcelas.sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+      const primeira = parcelas[0];
+      const pagas = parcelas.filter(p => p.pago === 'sim').length;
+      const valorTotal = parcelas.reduce((s, p) => s + Number(p.valor), 0);
+      const temVencida = parcelas.some(p => p.pago === 'nao' && diasAte(p.data) !== null && diasAte(p.data) < 0);
+      return {
+        id: primeira.id, n: parcelas.length, pagas, valorTotal, temVencida,
+        data: primeira.data, fornecedor: primeira.fornecedor, categoria: primeira.categoria,
+        descricao: (primeira.descricao || '').replace(/ \(parcela \d+\/\d+\)$/, ''),
+        placa: primeira.vehicle_id ? (Store.get('vehicles', primeira.vehicle_id) || {}).placa : null,
+        pago: primeira.pago
+      };
+    }).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+
+    const rows = compras.map(c => {
+      const sit = c.n > 1
+        ? (c.pagas === c.n
+            ? '<span class="status-pill ativo">Pago</span>'
+            : (c.temVencida ? '<span class="alert-tag vencido">Parcela vencida</span>' : `<span class="status-pill manutencao">${c.pagas}/${c.n} pagas</span>`))
+        : situacaoPgtoTag(c.pago, c.data);
+      return `
+      <tr>
+        <td>${fmtDate(c.data)}${c.n > 1 ? `<br><span style="font-size:11px;color:#8A929A;">1º venc. · ${c.n}x</span>` : ''}</td>
+        <td>${c.fornecedor || '—'}</td>
+        <td>${c.categoria || '—'}</td>
+        <td>${c.descricao}</td>
+        <td>${c.placa || '—'}</td>
+        <td style="font-weight:600;color:var(--vermelho-alerta);">${fmtMoney(c.valorTotal)}${c.n > 1 ? `<br><span style="font-size:11px;color:#8A929A;">${c.n}x de ${fmtMoney(c.valorTotal / c.n)}</span>` : ''}</td>
+        <td>${sit}</td>
+        <td><div class="row-actions">
+          ${c.n === 1 && c.pago === 'nao' ? `<button class="btn btn-primary btn-sm" data-pagar-fin="${c.id}">✓ Pagar</button>` : ''}
+          <button class="btn btn-ghost btn-sm" data-edit-compra="${c.id}">Editar</button>
+          <button class="btn btn-danger btn-sm" data-del-fin="${c.id}" title="Excluir compra">🗑</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+    contentHtml = `
+    <div style="font-size:12.5px;color:#6B747B;margin-bottom:10px;">Compras parceladas aparecem aqui como uma linha só — a baixa de cada parcela é feita no Financeiro (Lançamentos ou Fluxo de Caixa).</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Vencimento</th><th>Fornecedor</th><th>Categoria</th><th>Descrição</th><th>Veículo</th><th>Valor</th><th>Situação</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="8" class="empty-state">Nenhuma compra registrada. Dá para parcelar em até 12x.</td></tr>`}</tbody>
+    </table></div>`;
+  }
+
+  main.innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">Compras</h1><div class="page-sub">Combustível, manutenção e compras gerais — geram contas a pagar</div></div>
+      <button class="btn btn-accent" id="btn-new">${btnLabel}</button>
+    </div>
+
+    <div class="grid grid-4" style="margin-bottom:16px;">
+      <div class="card"><p class="card-title">Compras do mês</p><div class="kpi-value" style="font-size:24px;">${fmtMoney(comprasMes)}</div></div>
+      <div class="card"><p class="card-title">A pagar — Combustível</p><div class="kpi-value" style="font-size:24px;color:var(--faixa-escura);">${fmtMoney(pendFuel)}</div></div>
+      <div class="card"><p class="card-title">A pagar — Manutenção</p><div class="kpi-value" style="font-size:24px;color:var(--faixa-escura);">${fmtMoney(pendMaint)}</div></div>
+      <div class="card"><p class="card-title">A pagar — Total</p><div class="kpi-value" style="font-size:24px;color:var(--vermelho-alerta);">${fmtMoney(totalPend)}</div><div class="kpi-label">inclui compras gerais</div></div>
+    </div>
+
+    <div class="tab-bar">
+      ${chip('fuel', '⛽ Combustível')}
+      ${chip('maintenance', '🔧 Manutenção')}
+      ${chip('general', '🛒 Compras Gerais')}
+    </div>
+
+    ${contentHtml}`;
+
+  main.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => views.purchases(btn.dataset.tab)));
+  document.getElementById('btn-new').addEventListener('click', () => {
+    if (tab === 'fuel') openFuelModal();
+    else if (tab === 'maintenance') openMaintenanceModal();
+    else openPurchaseModal();
+  });
+
+  main.querySelectorAll('[data-pagar-fuel]').forEach(btn => btn.addEventListener('click', () => {
+    Store.update('fuel', btn.dataset.pagarFuel, { pago: 'sim' });
+    toast('Pagamento registrado.');
+    views.purchases('fuel');
+  }));
+  main.querySelectorAll('[data-edit-fuel]').forEach(btn => btn.addEventListener('click', () => {
+    openFuelModal(Store.list('fuel').find(x => x.id == btn.dataset.editFuel));
+  }));
+  main.querySelectorAll('[data-del-fuel]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Excluir esta compra de combustível? As parcelas dela saem do Financeiro e do Fluxo de Caixa.')) return;
+    const id = Number(btn.dataset.delFuel);
+    Store.list('finance').filter(l => l.ref_tabela === 'fuel' && l.ref_id === id).forEach(l => Store.remove('finance', l.id));
+    Store.remove('fuel', id);
+    toast('Registro excluído.');
+    views.purchases('fuel');
+  }));
+  main.querySelectorAll('[data-pagar-maint]').forEach(btn => btn.addEventListener('click', () => {
+    Store.update('maintenance', btn.dataset.pagarMaint, { pago: 'sim' });
+    toast('Pagamento registrado.');
+    views.purchases('maintenance');
+  }));
+  main.querySelectorAll('[data-edit-maint]').forEach(btn => btn.addEventListener('click', () => {
+    openMaintenanceModal(Store.list('maintenance').find(x => x.id == btn.dataset.editMaint));
+  }));
+  main.querySelectorAll('[data-del-maint]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Excluir esta compra de manutenção? As parcelas dela saem do Financeiro e do Fluxo de Caixa.')) return;
+    const id = Number(btn.dataset.delMaint);
+    Store.list('finance').filter(l => l.ref_tabela === 'maintenance' && l.ref_id === id).forEach(l => Store.remove('finance', l.id));
+    Store.remove('maintenance', id);
+    toast('Registro excluído.');
+    views.purchases('maintenance');
+  }));
+  main.querySelectorAll('[data-pagar-fin]').forEach(btn => btn.addEventListener('click', () => {
+    Store.update('finance', btn.dataset.pagarFin, { pago: 'sim' });
+    toast('Pagamento registrado.');
+    views.purchases('general');
+  }));
+  main.querySelectorAll('[data-edit-compra]').forEach(btn => btn.addEventListener('click', () => {
+    const alvo = Store.list('finance').find(x => x.id == btn.dataset.editCompra);
+    if (!alvo) return;
+    const irmas = (alvo.grupo ? Store.list('finance').filter(l => l.grupo === alvo.grupo) : [alvo])
+      .sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    let base = (irmas[0].descricao || '').replace(/ \(parcela \d+\/\d+\)$/, '');
+    if (alvo.fornecedor && base.startsWith(alvo.fornecedor + ': ')) base = base.slice(alvo.fornecedor.length + 2);
+    openPurchaseModal({
+      id: alvo.id, _irmas: irmas,
+      fornecedor: alvo.fornecedor, categoria: alvo.categoria, descricao: base,
+      vehicle_id: alvo.vehicle_id,
+      valor: Math.round(irmas.reduce((s, l) => s + Number(l.valor), 0) * 100) / 100,
+      num_parcelas: irmas.length, primeiro_vencimento: irmas[0].data,
+      observacoes: alvo.observacoes
+    });
+  }));
+  main.querySelectorAll('[data-edit-fin]').forEach(btn => btn.addEventListener('click', () => {
+    openFinanceModal(Store.list('finance').find(x => x.id == btn.dataset.editFin));
+  }));
+  main.querySelectorAll('[data-del-fin]').forEach(btn => btn.addEventListener('click', () => {
+    const alvo = Store.list('finance').find(x => x.id == btn.dataset.delFin);
+    if (!alvo) return;
+    const irmas = alvo.grupo
+      ? Store.list('finance').filter(l => l.grupo === alvo.grupo)
+      : (alvo.ref_tabela ? Store.list('finance').filter(l => l.ref_tabela === alvo.ref_tabela && l.ref_id === alvo.ref_id) : [alvo]);
+    const msg = irmas.length > 1
+      ? `Excluir esta compra? Todas as ${irmas.length} parcelas dela serão removidas do Financeiro e do Fluxo de Caixa.`
+      : 'Excluir esta compra? O lançamento sai do Financeiro e do Fluxo de Caixa.';
+    if (!confirm(msg)) return;
+    irmas.forEach(l => Store.remove('finance', l.id));
+    if (alvo.ref_tabela === 'fuel') Store.remove('fuel', alvo.ref_id);
+    if (alvo.ref_tabela === 'maintenance') Store.remove('maintenance', alvo.ref_id);
+    toast(irmas.length > 1 ? 'Compra e parcelas excluídas.' : 'Compra excluída.');
+    views.purchases('general');
+  }));
+};
+
+/* ==================== DOCUMENTAÇÃO ==================== */
+function documentFormFields(doc = {}) {
+  const entidades = doc.entidade_tipo === 'motorista' ? state.drivers : state.vehicles;
+  return `
+    <div class="form-field"><label>Tipo de entidade</label>
+      <select name="entidade_tipo" id="doc-tipo">
+        <option value="veiculo" ${doc.entidade_tipo === 'veiculo' || !doc.entidade_tipo ? 'selected' : ''}>Veículo</option>
+        <option value="motorista" ${doc.entidade_tipo === 'motorista' ? 'selected' : ''}>Motorista</option>
+      </select>
+    </div>
+    <div class="form-field"><label>Entidade</label>
+      <select name="entidade_id" id="doc-entidade">${optionsHtml(entidades, 'id', e => e.placa ? `${e.placa} — ${e.modelo}` : e.nome, doc.entidade_id)}</select>
+    </div>
+    <div class="form-field"><label>Tipo de documento</label><input name="tipo_doc" value="${doc.tipo_doc || ''}" required placeholder="Ex: CRLV, Seguro, CNH, ANTT"></div>
+    <div class="form-field"><label>Número</label><input name="numero" value="${doc.numero || ''}"></div>
+    <div class="form-field"><label>Emissão</label><input name="emissao" type="date" value="${doc.emissao || ''}"></div>
+    <div class="form-field"><label>Validade</label><input name="validade" type="date" value="${doc.validade || ''}"></div>
+    <div class="form-field full"><label>Observações</label><textarea name="observacoes">${doc.observacoes || ''}</textarea></div>`;
+}
+function openDocumentModal(record) {
+  const isEdit = !!record;
+  const overlay = openModal(isEdit ? 'Editar documento' : 'Novo documento', documentFormFields(record || {}), (payload) => {
+    payload.entidade_id = Number(payload.entidade_id);
+    if (isEdit) { Store.update('documents', record.id, payload); toast('Documento atualizado.'); }
+    else { Store.insert('documents', payload); toast('Documento cadastrado.'); }
+    closeModal();
+    renderView('documents');
+  });
+  const tipoSelect = overlay.querySelector('#doc-tipo');
+  const entidadeSelect = overlay.querySelector('#doc-entidade');
+  tipoSelect.addEventListener('change', () => {
+    const list = tipoSelect.value === 'motorista' ? state.drivers : state.vehicles;
+    entidadeSelect.innerHTML = optionsHtml(list, 'id', e => e.placa ? `${e.placa} — ${e.modelo}` : e.nome);
+  });
+}
+views.documents = function () {
+  const records = Store.list('documents').map(d => {
+    const label = d.entidade_tipo === 'veiculo'
+      ? (Store.get('vehicles', d.entidade_id) ? `${Store.get('vehicles', d.entidade_id).placa} - ${Store.get('vehicles', d.entidade_id).modelo}` : '(veículo removido)')
+      : (Store.get('drivers', d.entidade_id)?.nome || '(motorista removido)');
+    return { ...d, entidade_label: label };
+  }).sort((a, b) => (a.validade || '').localeCompare(b.validade || ''));
+
+  const alertTag = (dias) => {
+    if (dias === null) return '—';
+    if (dias < 0) return `<span class="alert-tag vencido">Vencido há ${Math.abs(dias)}d</span>`;
+    if (dias <= 30) return `<span class="alert-tag urgente">${dias}d restantes</span>`;
+    return `<span class="alert-tag ok">${dias}d restantes</span>`;
+  };
+
+  const rows = records.map(d => `
+    <tr>
+      <td>${d.entidade_tipo === 'veiculo' ? '🚚' : '👤'} ${d.entidade_label}</td>
+      <td>${d.tipo_doc}</td>
+      <td>${d.numero || '—'}</td>
+      <td>${fmtDate(d.validade)}</td>
+      <td>${alertTag(diasAte(d.validade))}</td>
+      <td><div class="row-actions"><button class="btn btn-ghost btn-sm" data-edit="${d.id}">Editar</button><button class="btn btn-danger btn-sm" data-del="${d.id}">Excluir</button></div></td>
+    </tr>`).join('');
+
+  main.innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">Documentação</h1><div class="page-sub">${records.length} documentos cadastrados</div></div>
+      <button class="btn btn-accent" id="btn-new">+ Novo documento</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Entidade</th><th>Documento</th><th>Número</th><th>Validade</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="empty-state">Nenhum documento cadastrado.</td></tr>`}</tbody>
+    </table></div>`;
+
+  document.getElementById('btn-new').addEventListener('click', () => openDocumentModal());
+  main.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => openDocumentModal(records.find(x => x.id == btn.dataset.edit))));
+  main.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Excluir este documento?')) return;
+    Store.remove('documents', btn.dataset.del);
+    toast('Documento excluído.');
+    renderView('documents');
+  }));
+};
+
+/* ==================== FINANCEIRO ==================== */
+const CATEGORIAS_RECEITA = ['Frete', 'Serviço', 'Venda', 'Outros'];
+const CATEGORIAS_DESPESA = ['Financiamento', 'Consórcio', 'Salários', 'Pedágio', 'Seguro', 'Impostos', 'Pneus', 'Peças', 'Aluguel', 'Multas', 'Outros'];
+
+function financeFormFields(l = {}) {
+  const isReceita = l.tipo === 'receita';
+  return `
+    <div class="form-field"><label>Tipo</label>
+      <select name="tipo" id="fin-tipo">
+        <option value="receita" ${isReceita ? 'selected' : ''}>Receita</option>
+        <option value="despesa" ${l.tipo === 'despesa' ? 'selected' : ''}>Despesa</option>
+      </select>
+    </div>
+    <div class="form-field"><label>Categoria</label>
+      <select name="categoria" id="fin-categoria">
+        ${(isReceita ? CATEGORIAS_RECEITA : CATEGORIAS_DESPESA).map(c => `<option value="${c}" ${l.categoria === c ? 'selected' : ''}>${c}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-field full"><label>Descrição</label><input name="descricao" value="${l.descricao || ''}" required placeholder="Ex: Frete Curitiba → Matinhos"></div>
+    <div class="form-field"><label>Valor (R$)</label><input name="valor" type="number" step="0.01" min="0" value="${l.valor ?? ''}" required></div>
+    <div class="form-field"><label>Data / vencimento</label><input name="data" type="date" value="${l.data || todayISO()}" required></div>
+    <div class="form-field"><label>Situação</label>
+      <select name="pago">
+        <option value="sim" ${l.pago === 'sim' ? 'selected' : ''}>Pago / Recebido</option>
+        <option value="nao" ${l.pago === 'nao' ? 'selected' : ''}>Pendente</option>
+      </select>
+    </div>
+    <div class="form-field"><label>Veículo (opcional)</label>
+      <select name="vehicle_id"><option value="">—</option>${optionsHtml(state.vehicles, 'id', v => v.placa, l.vehicle_id)}</select>
+    </div>
+    <div class="form-field full"><label>Observações</label><textarea name="observacoes">${l.observacoes || ''}</textarea></div>`;
+}
+
+function openFinanceModal(record, tipoInicial) {
+  const isEdit = !!record;
+  const base = record || (tipoInicial ? { tipo: tipoInicial } : {});
+  const overlay = openModal(isEdit ? 'Editar lançamento' : 'Novo lançamento', financeFormFields(base), (payload) => {
+    payload.valor = Number(payload.valor);
+    payload.vehicle_id = payload.vehicle_id ? Number(payload.vehicle_id) : null;
+    if (isEdit) { Store.update('finance', record.id, payload); toast('Lançamento atualizado.'); }
+    else { Store.insert('finance', payload); toast('Lançamento registrado.'); }
+    closeModal();
+    renderView(['expenses', 'purchases'].includes(viewAtual) ? viewAtual : 'finance');
+  });
+  const tipoSelect = overlay.querySelector('#fin-tipo');
+  const catSelect = overlay.querySelector('#fin-categoria');
+  tipoSelect.addEventListener('change', () => {
+    const cats = tipoSelect.value === 'receita' ? CATEGORIAS_RECEITA : CATEGORIAS_DESPESA;
+    catSelect.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  });
+}
+
+function mesLabel(ym) {
+  const [y, m] = ym.split('-');
+  const nomes = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  return `${nomes[Number(m) - 1]} de ${y}`;
+}
+
+let financeTab = 'lancamentos';
+views.finance = function (mesSelecionado) {
+  if (financeTab === 'fluxo') { renderFluxoCaixa(); return; }
+  if (financeTab === 'analise') { renderAnaliseFinanceira(); return; }
+  const mes = mesSelecionado || todayISO().slice(0, 7);
+
+  const lancamentos = Store.list('finance');
+  const fuel = Store.list('fuel');
+  const maintenance = Store.list('maintenance');
+  const vendas = Store.list('sales');
+
+  // Lançamentos manuais do mês
+  const doMes = lancamentos.filter(l => l.data && l.data.slice(0, 7) === mes);
+
+  // Receitas automáticas: parcelas recebidas de fretes fechados/concluídos, com vencimento no mês
+  const autoReceitas = [];
+  vendas.filter(s => s.status === 'fechado' || s.status === 'concluido').forEach(s => {
+    const parcelas = getParcelas(s);
+    parcelas.filter(p => p.pago === 'sim' && p.data && p.data.slice(0, 7) === mes).forEach(p => {
+      autoReceitas.push({
+        auto: true, origem: 'Frete (Vendas)', data: p.data,
+        descricao: `${s.cliente} — ${s.origem ? s.origem + ' → ' : ''}${s.destino}${parcelas.length > 1 ? ` (parcela ${p.num}/${parcelas.length})` : ''}`,
+        valor: p.valor
+      });
+    });
+  });
+
+  // Despesas automáticas vindas dos outros módulos (só as do mês)
+  const autoDespesas = [
+    ...fuel.filter(f => f.data && f.data.slice(0, 7) === mes && f.pago !== 'parcelado').map(f => ({
+      auto: true, origem: 'Combustível', data: f.data,
+      descricao: `Abastecimento ${Store.get('vehicles', f.vehicle_id)?.placa || ''} (${f.litros} L${f.posto ? ' · ' + f.posto : ''})`,
+      valor: Number(f.valor_total) || 0
+    })),
+    ...maintenance.filter(m => m.data && m.data.slice(0, 7) === mes && Number(m.custo) > 0 && m.pago !== 'parcelado').map(m => ({
+      auto: true, origem: 'Manutenção', data: m.data,
+      descricao: `${m.descricao} — ${Store.get('vehicles', m.vehicle_id)?.placa || ''}`,
+      valor: Number(m.custo) || 0
+    }))
+  ];
+
+  const receitas = doMes.filter(l => l.tipo === 'receita');
+  const despesasManuais = doMes.filter(l => l.tipo === 'despesa');
+
+  const totalReceitasManuais = receitas.reduce((s, l) => s + Number(l.valor), 0);
+  const totalReceitasAuto = autoReceitas.reduce((s, l) => s + l.valor, 0);
+  const totalReceitas = totalReceitasManuais + totalReceitasAuto;
+  const totalDespesasManuais = despesasManuais.reduce((s, l) => s + Number(l.valor), 0);
+  const totalAuto = autoDespesas.reduce((s, l) => s + l.valor, 0);
+  const totalDespesas = totalDespesasManuais + totalAuto;
+  const saldo = totalReceitas - totalDespesas;
+
+  // Pendências: lançamentos manuais não quitados + fretes fechados a receber
+  const pendentesFinance = lancamentos.filter(l => l.pago === 'nao')
+    .map(l => ({ ...l, dias: diasAte(l.data) }));
+  const pendentesVendas = [];
+  vendas.filter(s => s.status === 'fechado' || s.status === 'concluido').forEach(s => {
+    const parcelas = getParcelas(s);
+    parcelas.filter(p => p.pago === 'nao').forEach(p => {
+      pendentesVendas.push({
+        tipo: 'receita',
+        descricao: `Frete: ${s.cliente} — ${s.destino}${parcelas.length > 1 ? ` (parcela ${p.num}/${parcelas.length})` : ''}`,
+        valor: p.valor, data: p.data, dias: diasAte(p.data)
+      });
+    });
+  });
+  const pendentesCompras = [];
+  fuel.filter(f => f.pago === 'nao').forEach(f => {
+    const venc = f.vencimento || f.data;
+    pendentesCompras.push({ tipo: 'despesa', descricao: `Combustível ${(Store.get('vehicles', f.vehicle_id) || {}).placa || ''} (${f.litros} L)`, valor: Number(f.valor_total), data: venc, dias: diasAte(venc) });
+  });
+  maintenance.filter(m => m.pago === 'nao' && Number(m.custo) > 0).forEach(m => {
+    const venc = m.vencimento || m.data;
+    pendentesCompras.push({ tipo: 'despesa', descricao: `${m.descricao} — ${(Store.get('vehicles', m.vehicle_id) || {}).placa || ''}`, valor: Number(m.custo), data: venc, dias: diasAte(venc) });
+  });
+  const pendentes = [...pendentesFinance, ...pendentesVendas, ...pendentesCompras]
+    .sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+
+  const pendTag = (dias) => {
+    if (dias === null) return '';
+    if (dias < 0) return `<span class="alert-tag vencido">Venceu há ${Math.abs(dias)}d</span>`;
+    if (dias <= 7) return `<span class="alert-tag urgente">${dias}d</span>`;
+    return `<span class="alert-tag ok">${dias}d</span>`;
+  };
+
+  const pendRows = pendentes.length
+    ? pendentes.map(l => `
+        <div class="alert-row">
+          <span>${l.tipo === 'receita' ? '↑' : '↓'} ${l.descricao} — <strong>${fmtMoney(l.valor)}</strong> (${fmtDate(l.data)})</span>
+          ${pendTag(l.dias)}
+        </div>`).join('')
+    : `<div class="empty-state">Nenhuma conta pendente.</div>`;
+
+  // Tabela unificada do mês: manuais + automáticas (despesas de frota e receitas de frete)
+  const linhas = [
+    ...doMes.map(l => ({ ...l, isAuto: false })),
+    ...autoDespesas.map(l => ({ ...l, tipo: 'despesa', categoria: l.origem, pago: 'sim', isAuto: true })),
+    ...autoReceitas.map(l => ({ ...l, tipo: 'receita', categoria: l.origem, pago: 'sim', isAuto: true }))
+  ].sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+
+  const rows = linhas.map(l => `
+    <tr>
+      <td>${fmtDate(l.data)}</td>
+      <td><span class="status-pill ${l.tipo === 'receita' ? 'ativo' : 'inativo'}">${l.tipo === 'receita' ? 'Receita' : 'Despesa'}</span></td>
+      <td>${l.categoria || '—'}${l.isAuto ? ' <span style="font-size:10px;color:#8A929A;">(automático)</span>' : ''}</td>
+      <td>${l.descricao}</td>
+      <td style="font-weight:600;color:${l.tipo === 'receita' ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${l.tipo === 'receita' ? '+' : '−'} ${fmtMoney(l.valor)}</td>
+      <td>${l.isAuto ? '—' : `<span class="status-pill ${l.pago === 'sim' ? 'ativo' : 'manutencao'}">${l.pago === 'sim' ? 'Pago' : 'Pendente'}</span>`}</td>
+      <td>${l.isAuto ? '' : `<div class="row-actions"><button class="btn btn-ghost btn-sm" data-edit="${l.id}">Editar</button><button class="btn btn-danger btn-sm" data-del="${l.id}">Excluir</button></div>`}</td>
+    </tr>`).join('');
+
+  // Navegação de meses
+  const [y, m] = mes.split('-').map(Number);
+  const mesAnterior = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+  const mesSeguinte = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+
+  main.innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">Financeiro</h1><div class="page-sub">Receitas, despesas e contas pendentes</div></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" id="btn-new-receita">+ Receita</button>
+        <button class="btn btn-accent" id="btn-new-despesa">+ Despesa</button>
+      </div>
+    </div>
+
+    <div class="tab-bar">
+      <button class="tab-chip active" data-fintab="lancamentos">📒 Lançamentos</button>
+      <button class="tab-chip" data-fintab="fluxo">💰 Fluxo de Caixa</button>
+      <button class="tab-chip" data-fintab="analise">📊 Análise</button>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;">
+      <button class="btn btn-ghost btn-sm" id="mes-ant">← ${mesLabel(mesAnterior)}</button>
+      <strong style="font-size:15px;text-transform:capitalize;">${mesLabel(mes)}</strong>
+      <button class="btn btn-ghost btn-sm" id="mes-seg">${mesLabel(mesSeguinte)} →</button>
+    </div>
+
+    <div class="grid grid-4" style="margin-bottom:16px;">
+      <div class="card"><p class="card-title">Receitas</p><div class="kpi-value" style="font-size:24px;color:var(--verde-ok);">${fmtMoney(totalReceitas)}</div><div class="kpi-label">inclui fretes de Vendas</div></div>
+      <div class="card"><p class="card-title">Despesas manuais</p><div class="kpi-value" style="font-size:24px;color:var(--vermelho-alerta);">${fmtMoney(totalDespesasManuais)}</div></div>
+      <div class="card"><p class="card-title">Frota (comb.+manut.)</p><div class="kpi-value" style="font-size:24px;color:var(--vermelho-alerta);">${fmtMoney(totalAuto)}</div><div class="kpi-label">entra automático</div></div>
+      <div class="card"><p class="card-title">Saldo do mês</p><div class="kpi-value" style="font-size:24px;color:${saldo >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${fmtMoney(saldo)}</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <p class="card-title">⚠ Contas pendentes (a pagar / a receber)</p>
+      ${pendRows}
+    </div>
+
+    <div class="table-wrap"><table>
+      <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Situação</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="empty-state">Nenhum lançamento neste mês.</td></tr>`}</tbody>
+    </table></div>`;
+
+  document.getElementById('btn-new-receita').addEventListener('click', () => openFinanceModal(null, 'receita'));
+  main.querySelectorAll('[data-fintab]').forEach(btn => btn.addEventListener('click', () => {
+    financeTab = btn.dataset.fintab;
+    loadBaseData();
+    views.finance();
+  }));
+  document.getElementById('btn-new-despesa').addEventListener('click', () => openFinanceModal(null, 'despesa'));
+  document.getElementById('mes-ant').addEventListener('click', () => { setActiveNav('finance'); loadBaseData(); views.finance(mesAnterior); });
+  document.getElementById('mes-seg').addEventListener('click', () => { setActiveNav('finance'); loadBaseData(); views.finance(mesSeguinte); });
+  main.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
+    const l = lancamentos.find(x => x.id == btn.dataset.edit);
+    openFinanceModal(l);
+  }));
+  main.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Excluir este lançamento?')) return;
+    Store.remove('finance', btn.dataset.del);
+    toast('Lançamento excluído.');
+    renderView('finance');
+  }));
+};
+
+/* ==================== COMERCIAL (VENDAS DE FRETE) ==================== */
+const VENDA_STATUS = { orcamento: 'Orçamento', fechado: 'Fechado', concluido: 'Concluído', cancelado: 'Cancelado' };
+
+function saleFormFields(s = {}) {
+  return `
+    <div class="form-field"><label>Data</label><input name="data" type="date" value="${s.data || todayISO()}" required></div>
+    ${customerSelectField('Cliente', s.cliente, 'cliente')}
+    <div class="form-field"><label>Telefone / contato</label><input name="contato" value="${s.contato || ''}"></div>
+    <div class="form-field"><label>Valor do frete (R$)</label><input name="valor" type="number" step="0.01" min="0" value="${s.valor ?? ''}" required></div>
+    <div class="form-field"><label>Qtd. de ajudantes</label><input name="qtd_ajudantes" type="number" min="0" step="1" value="${s.qtd_ajudantes ?? 0}"></div>
+    <div class="form-field"><label>Valor por ajudante (R$)</label><input name="valor_ajudante" type="number" step="0.01" min="0" value="${s.valor_ajudante ?? ''}"></div>
+    <div class="form-field"><label>Qtd. de entregas</label><input name="qtd_entregas" type="number" min="1" step="1" value="${s.qtd_entregas ?? 1}"></div>
+    <div class="form-field full"><div id="venda-resumo" style="display:flex;gap:24px;flex-wrap:wrap;background:#F2F3F4;border-radius:8px;padding:10px 16px;font-size:13px;">
+      <span>Frete: <strong id="rv-frete">R$ 0,00</strong></span>
+      <span>Ajudantes: <strong id="rv-ajud">R$ 0,00</strong></span>
+      <span style="color:var(--verde-ok);">Total do serviço: <strong id="rv-total">R$ 0,00</strong></span>
+      <span id="rv-entrega-wrap" style="color:var(--faixa-escura);">Por entrega: <strong id="rv-entrega">R$ 0,00</strong></span>
+    </div></div>
+    <div class="form-field"><label>Origem</label><input name="origem" value="${s.origem || ''}"></div>
+    <div class="form-field"><label>Destino</label><input name="destino" value="${s.destino || ''}" required></div>
+    <div class="form-field full"><label>Descrição da carga</label><input name="descricao_carga" value="${s.descricao_carga || ''}" placeholder="Ex: 20 caixas de móveis, 1.200 kg"></div>
+    <div class="form-field"><label>Peso estimado (kg)</label><input name="peso_kg" type="number" step="0.1" value="${s.peso_kg ?? ''}"></div>
+    <div class="form-field"><label>Status</label>
+      <select name="status">
+        <option value="orcamento" ${s.status === 'orcamento' ? 'selected' : ''}>Orçamento</option>
+        <option value="fechado" ${s.status === 'fechado' ? 'selected' : ''}>Fechado</option>
+        <option value="concluido" ${s.status === 'concluido' ? 'selected' : ''}>Concluído</option>
+        <option value="cancelado" ${s.status === 'cancelado' ? 'selected' : ''}>Cancelado</option>
+      </select>
+    </div>
+    <div class="form-field"><label>Pagamento</label>
+      <select name="pago">
+        <option value="nao" ${s.pago === 'nao' || !s.pago ? 'selected' : ''}>A receber</option>
+        <option value="sim" ${s.pago === 'sim' ? 'selected' : ''}>Recebido</option>
+      </select>
+    </div>
+    <div class="form-field"><label>Forma de pagamento</label>
+      <select name="forma_pgto">
+        <option value="" ${!s.forma_pgto ? 'selected' : ''}>—</option>
+        <option value="PIX" ${s.forma_pgto === 'PIX' ? 'selected' : ''}>PIX</option>
+        <option value="Dinheiro" ${s.forma_pgto === 'Dinheiro' ? 'selected' : ''}>Dinheiro</option>
+        <option value="Boleto" ${s.forma_pgto === 'Boleto' ? 'selected' : ''}>Boleto</option>
+        <option value="Cartão" ${s.forma_pgto === 'Cartão' ? 'selected' : ''}>Cartão</option>
+        <option value="Transferência" ${s.forma_pgto === 'Transferência' ? 'selected' : ''}>Transferência</option>
+      </select>
+    </div>
+    <div class="form-field"><label>Nº de parcelas</label><input name="num_parcelas" type="number" min="1" max="36" value="${s.num_parcelas || 1}"></div>
+    <div class="form-field"><label>1º vencimento</label><input name="primeiro_vencimento" type="date" value="${s.primeiro_vencimento || ''}" placeholder="Se vazio, usa a data da venda"></div>
+    <div class="form-field full"><label>Observações</label><textarea name="observacoes">${s.observacoes || ''}</textarea></div>`;
+}
+
+function gerarParcelas(valorTotal, n, primeiraData, existentes) {
+  const parcelas = [];
+  const base = Math.floor((valorTotal / n) * 100) / 100;
+  let acumulado = 0;
+  const [py, pm, pd] = primeiraData.split('-').map(Number);
+  for (let i = 0; i < n; i++) {
+    const valor = i === n - 1 ? Math.round((valorTotal - acumulado) * 100) / 100 : base;
+    acumulado += valor;
+    const dt = new Date(py, pm - 1 + i, pd);
+    const dataStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    parcelas.push({ num: i + 1, data: dataStr, valor, pago: (existentes && existentes[i]) ? existentes[i].pago : 'nao' });
+  }
+  return parcelas;
+}
+
+function getParcelas(s) {
+  if (s.parcelas && s.parcelas.length) return s.parcelas;
+  const v = (s.valor_total != null) ? Number(s.valor_total) : Number(s.valor);
+  return [{ num: 1, data: s.data, valor: v, pago: s.pago || 'nao' }];
+}
+
+function marcarParcelaRecebida(saleId, num) {
+  const s = Store.get('sales', saleId);
+  if (!s) return;
+  const parcelas = getParcelas(s).map(p => p.num === Number(num) ? { ...p, pago: 'sim' } : p);
+  const todasPagas = parcelas.every(p => p.pago === 'sim');
+  Store.update('sales', saleId, { parcelas, pago: todasPagas ? 'sim' : 'nao' });
+}
+
+function openSaleModal(record) {
+  const isEdit = !!record;
+  const overlay = openModal(isEdit ? 'Editar venda de frete' : 'Nova venda de frete', saleFormFields(record || {}), (payload) => {
+    payload.valor = Number(payload.valor) || 0;
+    payload.qtd_ajudantes = Math.max(0, Number(payload.qtd_ajudantes) || 0);
+    payload.valor_ajudante = Number(payload.valor_ajudante) || 0;
+    payload.valor_ajudantes_total = payload.qtd_ajudantes * payload.valor_ajudante;
+    payload.valor_total = payload.valor + payload.valor_ajudantes_total;
+    payload.qtd_entregas = Math.max(1, Number(payload.qtd_entregas) || 1);
+    payload.valor_por_entrega = payload.valor / payload.qtd_entregas;
+    payload.peso_kg = payload.peso_kg ? Number(payload.peso_kg) : null;
+    payload.num_parcelas = Math.max(1, Number(payload.num_parcelas) || 1);
+    payload.primeiro_vencimento = payload.primeiro_vencimento || payload.data;
+    const existentes = isEdit && record.parcelas && record.parcelas.length === payload.num_parcelas ? record.parcelas : null;
+    payload.parcelas = gerarParcelas(payload.valor_total, payload.num_parcelas, payload.primeiro_vencimento, existentes);
+    if (payload.pago === 'sim') payload.parcelas.forEach(p => p.pago = 'sim');
+    else payload.pago = payload.parcelas.every(p => p.pago === 'sim') ? 'sim' : 'nao';
+    if (isEdit) { Store.update('sales', record.id, payload); toast('Venda atualizada.'); }
+    else { Store.insert('sales', payload); toast(payload.num_parcelas > 1 ? `Venda registrada em ${payload.num_parcelas}x.` : 'Venda registrada.'); }
+    closeModal();
+    renderView('commercial');
+  });
+  // resumo dinamico do total (frete + ajudantes)
+  const atualizarResumo = () => {
+    const frete = Number((overlay.querySelector('[name="valor"]') || {}).value) || 0;
+    const qtd = Number((overlay.querySelector('[name="qtd_ajudantes"]') || {}).value) || 0;
+    const vAjud = Number((overlay.querySelector('[name="valor_ajudante"]') || {}).value) || 0;
+    const qtdEnt = Math.max(1, Number((overlay.querySelector('[name="qtd_entregas"]') || {}).value) || 1);
+    const totalAjud = qtd * vAjud;
+    const elF = overlay.querySelector('#rv-frete');
+    const elA = overlay.querySelector('#rv-ajud');
+    const elT = overlay.querySelector('#rv-total');
+    const elE = overlay.querySelector('#rv-entrega');
+    if (elF) elF.textContent = fmtMoney(frete);
+    if (elA) elA.textContent = fmtMoney(totalAjud) + (qtd > 0 ? ` (${qtd}×${fmtMoney(vAjud)})` : '');
+    if (elT) elT.textContent = fmtMoney(frete + totalAjud);
+    if (elE) elE.textContent = fmtMoney(frete / qtdEnt) + (qtdEnt > 1 ? ` (${qtdEnt} entregas)` : '');
+  };
+  ['valor', 'qtd_ajudantes', 'valor_ajudante', 'qtd_entregas'].forEach(nome => {
+    const el = overlay.querySelector('[name="' + nome + '"]');
+    if (el) el.addEventListener('input', atualizarResumo);
+  });
+  atualizarResumo();
+}
+
+/* ==================== OUTRAS DESPESAS ==================== */
+function expenseInstallmentFormFields() {
+  return `
+    <div class="form-field full"><label>Descrição</label><input name="descricao" required placeholder="Ex: Financiamento caminhão BDX-2A17"></div>
+    <div class="form-field"><label>Categoria</label>
+      <select name="categoria">${CATEGORIAS_DESPESA.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
+    </div>
+    <div class="form-field"><label>Veículo (opcional)</label>
+      <select name="vehicle_id"><option value="">—</option>${optionsHtml(state.vehicles, 'id', v => v.placa)}</select>
+    </div>
+    <div class="form-field"><label>Valor total (R$)</label><input name="valor" type="number" step="0.01" min="0" required placeholder="Se parcelado, soma das parcelas"></div>
+    <div class="form-field"><label>Nº de parcelas (1 a 12)</label><input name="num_parcelas" type="number" min="1" max="12" value="1"></div>
+    <div class="form-field"><label>Vencimento (ou 1º vencimento)</label><input name="primeiro_vencimento" type="date" value="${todayISO()}" required></div>
+    <div class="form-field"><label>&nbsp;</label><div style="font-size:12px;color:#6B747B;padding-top:8px;">Se parcelar, as demais vencem mês a mês.</div></div>
+    <div class="form-field full"><label>Observações</label><textarea name="observacoes"></textarea></div>`;
+}
+
+function openExpenseInstallmentModal() {
+  openModal('Nova despesa (à vista ou parcelada)', expenseInstallmentFormFields(), (payload) => {
+    const valor = Number(payload.valor);
+    const n = Math.min(12, Math.max(1, Number(payload.num_parcelas) || 1));
+    const parcelas = gerarParcelas(valor, n, payload.primeiro_vencimento, null);
+    parcelas.forEach(p => {
+      Store.insert('finance', {
+        tipo: 'despesa', categoria: payload.categoria,
+        descricao: `${payload.descricao}${n > 1 ? ` (parcela ${p.num}/${n})` : ''}`,
+        valor: p.valor, data: p.data, pago: 'nao',
+        vehicle_id: payload.vehicle_id ? Number(payload.vehicle_id) : null,
+        observacoes: payload.observacoes || ''
+      });
+    });
+    toast(n > 1 ? `${n} parcelas de ${fmtMoney(parcelas[0].valor)} lançadas.` : 'Despesa lançada.');
+    closeModal();
+    renderView('expenses');
+  });
+}
+
+views.expenses = function () {
+  const despesas = Store.list('finance').filter(l => l.tipo === 'despesa' && l.origem !== 'compra')
+    .map(l => ({ ...l, dias: diasAte(l.data), placa: l.vehicle_id ? (Store.get('vehicles', l.vehicle_id) || {}).placa : null }))
+    .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+
+  const pendentes = despesas.filter(l => l.pago === 'nao');
+  const totalPendente = pendentes.reduce((s, l) => s + Number(l.valor), 0);
+  const vencidas = pendentes.filter(l => l.dias !== null && l.dias < 0);
+  const totalVencidas = vencidas.reduce((s, l) => s + Number(l.valor), 0);
+  const anoAtual = todayISO().slice(0, 4);
+  const pagoAno = despesas.filter(l => l.pago === 'sim' && l.data && l.data.slice(0, 4) === anoAtual)
+    .reduce((s, l) => s + Number(l.valor), 0);
+
+  const sitTag = (l) => {
+    if (l.pago === 'sim') return '<span class="status-pill ativo">Pago</span>';
+    if (l.dias !== null && l.dias < 0) return `<span class="alert-tag vencido">Vencida há ${Math.abs(l.dias)}d</span>`;
+    if (l.dias !== null && l.dias <= 7) return `<span class="alert-tag urgente">${l.dias}d</span>`;
+    return '<span class="status-pill manutencao">Pendente</span>';
+  };
+
+  const rows = despesas.map(l => `
+    <tr>
+      <td>${fmtDate(l.data)}</td>
+      <td>${l.categoria || '—'}</td>
+      <td>${l.descricao}${l.observacoes ? `<br><span style="font-size:11px;color:#8A929A;">${l.observacoes}</span>` : ''}</td>
+      <td>${l.placa || '—'}</td>
+      <td style="font-weight:600;color:var(--vermelho-alerta);">${fmtMoney(l.valor)}</td>
+      <td>${sitTag(l)}</td>
+      <td><div class="row-actions">
+        ${l.pago === 'nao' ? `<button class="btn btn-primary btn-sm" data-pagar="${l.id}">✓ Pagar</button>` : ''}
+        <button class="btn btn-ghost btn-sm" data-edit="${l.id}">Editar</button>
+        <button class="btn btn-danger btn-sm" data-del="${l.id}">Excluir</button>
+      </div></td>
+    </tr>`).join('');
+
+  main.innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">Outras Despesas</h1><div class="page-sub">Financiamentos, consórcios, contas e despesas gerais — à vista ou parceladas</div></div>
+      <button class="btn btn-accent" id="btn-new">+ Nova despesa</button>
+    </div>
+
+    <div class="grid grid-4" style="margin-bottom:16px;">
+      <div class="card"><p class="card-title">Vencidas</p><div class="kpi-value" style="font-size:24px;color:var(--vermelho-alerta);">${fmtMoney(totalVencidas)}</div><div class="kpi-label">${vencidas.length} conta(s) em atraso</div></div>
+      <div class="card"><p class="card-title">Pendente (total)</p><div class="kpi-value" style="font-size:24px;color:var(--faixa-escura);">${fmtMoney(totalPendente)}</div><div class="kpi-label">${pendentes.length} conta(s) a pagar</div></div>
+      <div class="card"><p class="card-title">Pago em ${anoAtual}</p><div class="kpi-value" style="font-size:24px;">${fmtMoney(pagoAno)}</div></div>
+      <div class="card"><p class="card-title">Registros</p><div class="kpi-value">${despesas.length}</div><div class="kpi-label">todas as despesas manuais</div></div>
+    </div>
+
+    <div class="table-wrap"><table>
+      <thead><tr><th>Vencimento</th><th>Categoria</th><th>Descrição</th><th>Veículo</th><th>Valor</th><th>Situação</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="empty-state">Nenhuma despesa registrada. Clique em "+ Nova despesa" — dá para parcelar em até 12x.</td></tr>`}</tbody>
+    </table></div>`;
+
+  document.getElementById('btn-new').addEventListener('click', () => openExpenseInstallmentModal());
+  main.querySelectorAll('[data-pagar]').forEach(btn => btn.addEventListener('click', () => {
+    Store.update('finance', btn.dataset.pagar, { pago: 'sim' });
+    toast('Pagamento registrado.');
+    renderView('expenses');
+  }));
+  main.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => {
+    const l = Store.list('finance').find(x => x.id == btn.dataset.edit);
+    openFinanceModal(l);
+  }));
+  main.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Excluir esta despesa?')) return;
+    Store.remove('finance', btn.dataset.del);
+    toast('Despesa excluída.');
+    renderView('expenses');
+  }));
+};
+
+views.commercial = function (mesSelecionado) {
+  const mes = mesSelecionado || todayISO().slice(0, 7);
+  const vendas = Store.list('sales');
+  const doMes = vendas.filter(s => s.data && s.data.slice(0, 7) === mes);
+
+  const fechadas = doMes.filter(s => s.status === 'fechado' || s.status === 'concluido');
+  const orcamentos = doMes.filter(s => s.status === 'orcamento');
+  const faturamento = fechadas.reduce((sum, s) => sum + Number(s.valor_total != null ? s.valor_total : s.valor), 0);
+  const ticketMedio = fechadas.length ? faturamento / fechadas.length : 0;
+  const aReceber = vendas.filter(s => s.status === 'fechado' || s.status === 'concluido')
+    .reduce((sum, s) => sum + getParcelas(s).filter(p => p.pago === 'nao').reduce((x, p) => x + p.valor, 0), 0);
+
+  const rows = doMes.sort((a, b) => (b.data || '').localeCompare(a.data || '')).map(s => {
+    const parcelas = getParcelas(s);
+    const recebidas = parcelas.filter(p => p.pago === 'sim').length;
+    const pgtoCell = s.status === 'cancelado' ? '—'
+      : parcelas.length > 1
+        ? `<span class="status-pill ${recebidas === parcelas.length ? 'ativo' : 'manutencao'}">${recebidas}/${parcelas.length} parcelas</span>`
+        : `<span class="status-pill ${s.pago === 'sim' ? 'ativo' : 'manutencao'}">${s.pago === 'sim' ? 'Recebido' : 'A receber'}</span>`;
+    return `
+    <tr>
+      <td>${fmtDate(s.data)}</td>
+      <td><strong>${s.cliente}</strong>${s.contato ? `<br><span style="font-size:11px;color:#8A929A;">${s.contato}</span>` : ''}</td>
+      <td>${s.origem || '—'} → <strong>${s.destino}</strong>${(Number(s.qtd_entregas) > 1) ? `<br><span style="font-size:11px;color:#8A929A;">${s.qtd_entregas} entregas</span>` : ''}</td>
+      <td>${s.peso_kg ? s.peso_kg + ' kg' : '—'}</td>
+      <td style="font-weight:600;">${fmtMoney(s.valor_total != null ? s.valor_total : s.valor)}${(Number(s.valor_ajudantes_total) > 0) ? `<br><span style="font-size:11px;color:#8A929A;">frete ${fmtMoney(s.valor)} + ajud. ${fmtMoney(s.valor_ajudantes_total)}</span>` : ''}${parcelas.length > 1 ? `<br><span style="font-size:11px;color:#8A929A;">${parcelas.length}x de ${fmtMoney(parcelas[0].valor)}</span>` : ''}</td>
+      <td><span class="status-pill ${s.status === 'concluido' || s.status === 'fechado' ? 'ativo' : s.status === 'cancelado' ? 'inativo' : 'manutencao'}">${VENDA_STATUS[s.status]}</span></td>
+      <td>${pgtoCell}</td>
+      <td><div class="row-actions"><button class="btn btn-ghost btn-sm" data-edit="${s.id}">Editar</button><button class="btn btn-danger btn-sm" data-del="${s.id}" title="Excluir venda">🗑</button></div></td>
+    </tr>`;
+  }).join('');
+
+  const [y, m] = mes.split('-').map(Number);
+  const mesAnterior = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+  const mesSeguinte = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+
+  main.innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">Vendas</h1><div class="page-sub">Vendas de frete e orçamentos</div></div>
+      <button class="btn btn-accent" id="btn-new">+ Nova venda</button>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;">
+      <button class="btn btn-ghost btn-sm" id="mes-ant">← ${mesLabel(mesAnterior)}</button>
+      <strong style="font-size:15px;text-transform:capitalize;">${mesLabel(mes)}</strong>
+      <button class="btn btn-ghost btn-sm" id="mes-seg">${mesLabel(mesSeguinte)} →</button>
+    </div>
+
+    <div class="grid grid-4" style="margin-bottom:16px;">
+      <div class="card"><p class="card-title">Faturamento (mês)</p><div class="kpi-value" style="font-size:24px;color:var(--verde-ok);">${fmtMoney(faturamento)}</div><div class="kpi-label">${fechadas.length} frete(s) fechado(s)</div></div>
+      <div class="card"><p class="card-title">Ticket médio</p><div class="kpi-value" style="font-size:24px;">${fmtMoney(ticketMedio)}</div></div>
+      <div class="card"><p class="card-title">Orçamentos abertos</p><div class="kpi-value">${orcamentos.length}</div><div class="kpi-label">no mês</div></div>
+      <div class="card"><p class="card-title">A receber (total)</p><div class="kpi-value" style="font-size:24px;color:var(--faixa-escura);">${fmtMoney(aReceber)}</div><div class="kpi-label">todos os meses</div></div>
+    </div>
+
+    <div class="table-wrap"><table>
+      <thead><tr><th>Data</th><th>Cliente</th><th>Rota</th><th>Peso</th><th>Valor</th><th>Status</th><th>Pagamento</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="8" class="empty-state">Nenhuma venda neste mês. Clique em "+ Nova venda" para começar.</td></tr>`}</tbody>
+    </table></div>`;
+
+  document.getElementById('btn-new').addEventListener('click', () => openSaleModal());
+  document.getElementById('mes-ant').addEventListener('click', () => { setActiveNav('commercial'); loadBaseData(); views.commercial(mesAnterior); });
+  document.getElementById('mes-seg').addEventListener('click', () => { setActiveNav('commercial'); loadBaseData(); views.commercial(mesSeguinte); });
+  main.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => openSaleModal(vendas.find(x => x.id == btn.dataset.edit))));
+  main.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Excluir esta venda? As receitas e parcelas dela saem do Financeiro e do Fluxo de Caixa.')) return;
+    Store.remove('sales', btn.dataset.del);
+    toast('Venda excluída — lançamentos removidos.');
+    renderView('commercial');
+  }));
+};
+
+/* ==================== FLUXO DE CAIXA (aba do Financeiro) ==================== */
+/* ==================== ANALISE FINANCEIRA (aba do Financeiro) ==================== */
+function coletarMovimentos(ini, fim) {
+  const dentro = (d) => d && d >= ini && d <= fim;
+  const entradas = [];
+  const saidas = [];
+  Store.list('finance').filter(l => l.tipo === 'receita' && l.pago === 'sim' && dentro(l.data)).forEach(l => {
+    entradas.push({ data: l.data, valor: Number(l.valor), categoria: l.categoria || 'Outros' });
+  });
+  Store.list('sales').filter(s => s.status === 'fechado' || s.status === 'concluido').forEach(s => {
+    getParcelas(s).filter(p => p.pago === 'sim' && dentro(p.data)).forEach(p => {
+      entradas.push({ data: p.data, valor: Number(p.valor), categoria: 'Frete' });
+    });
+  });
+  Store.list('finance').filter(l => l.tipo === 'despesa' && l.pago === 'sim' && dentro(l.data)).forEach(l => {
+    saidas.push({ data: l.data, valor: Number(l.valor), categoria: l.categoria || 'Outros' });
+  });
+  Store.list('fuel').filter(f => f.pago === 'sim' && dentro(f.data)).forEach(f => {
+    saidas.push({ data: f.data, valor: Number(f.valor_total), categoria: 'Combustivel' });
+  });
+  Store.list('maintenance').filter(m => m.pago === 'sim' && Number(m.custo) > 0 && dentro(m.data)).forEach(m => {
+    saidas.push({ data: m.data, valor: Number(m.custo), categoria: 'Manutencao' });
+  });
+  return { entradas: entradas, saidas: saidas };
+}
+
+const analisePeriodo = { ini: null, fim: null };
+
+function renderAnaliseFinanceira() {
+  if (!analisePeriodo.ini) {
+    const h = new Date();
+    analisePeriodo.ini = new Date(h.getFullYear(), h.getMonth() - 5, 1).toISOString().slice(0, 10);
+    analisePeriodo.fim = todayISO();
+  }
+  const ini = analisePeriodo.ini;
+  const fim = analisePeriodo.fim;
+  const mov = coletarMovimentos(ini, fim);
+  const entradas = mov.entradas;
+  const saidas = mov.saidas;
+
+  const totalEnt = entradas.reduce((s, m) => s + m.valor, 0);
+  const totalSai = saidas.reduce((s, m) => s + m.valor, 0);
+  const saldo = totalEnt - totalSai;
+
+  const meses = {};
+  entradas.forEach(e => {
+    const mk = e.data.slice(0, 7);
+    if (!meses[mk]) meses[mk] = { ent: 0, sai: 0 };
+    meses[mk].ent += e.valor;
+  });
+  saidas.forEach(e => {
+    const mk = e.data.slice(0, 7);
+    if (!meses[mk]) meses[mk] = { ent: 0, sai: 0 };
+    meses[mk].sai += e.valor;
+  });
+  const mesesOrd = Object.keys(meses).sort();
+
+  const catSai = {};
+  saidas.forEach(s => { catSai[s.categoria] = (catSai[s.categoria] || 0) + s.valor; });
+  const catsOrd = Object.entries(catSai).sort((a, b) => b[1] - a[1]);
+
+  const catEnt = {};
+  entradas.forEach(e => { catEnt[e.categoria] = (catEnt[e.categoria] || 0) + e.valor; });
+  const catsEntOrd = Object.entries(catEnt).sort((a, b) => b[1] - a[1]);
+
+  let maxVal = 1;
+  mesesOrd.forEach(m => { maxVal = Math.max(maxVal, meses[m].ent, meses[m].sai); });
+  const bw = 46;
+  const gap = 34;
+  const padL = 8;
+  const chartH = 200;
+  const chartW = Math.max(320, padL * 2 + mesesOrd.length * (bw + gap));
+  const nomesMes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  let barsSvg = '';
+  for (let i = 0; i < mesesOrd.length; i++) {
+    const m = mesesOrd[i];
+    const x = padL + i * (bw + gap);
+    const hEnt = Math.round((meses[m].ent / maxVal) * chartH);
+    const hSai = Math.round((meses[m].sai / maxVal) * chartH);
+    const yy = m.slice(2, 4);
+    const mm = m.slice(5, 7);
+    const nomeMes = nomesMes[Number(mm) - 1];
+    const yEnt = 20 + chartH - hEnt;
+    const ySai = 20 + chartH - hSai;
+    const xSai = x + bw / 2 + 2;
+    const wBar = bw / 2 - 2;
+    const xLbl = x + bw / 2;
+    const yLbl = 20 + chartH + 16;
+    barsSvg += '<rect x="' + x + '" y="' + yEnt + '" width="' + wBar + '" height="' + hEnt + '" rx="3" fill="#3E9B5C"><title>' + nomeMes + '/' + yy + ' Recebido ' + fmtMoney(meses[m].ent) + '</title></rect>';
+    barsSvg += '<rect x="' + xSai + '" y="' + ySai + '" width="' + wBar + '" height="' + hSai + '" rx="3" fill="#C1432E"><title>' + nomeMes + '/' + yy + ' Pago ' + fmtMoney(meses[m].sai) + '</title></rect>';
+    barsSvg += '<text x="' + xLbl + '" y="' + yLbl + '" text-anchor="middle" font-size="11" fill="#6B747B">' + nomeMes + '/' + yy + '</text>';
+  }
+  const yBase = 20 + chartH;
+  const eixo = '<line x1="' + padL + '" y1="' + yBase + '" x2="' + (chartW - padL) + '" y2="' + yBase + '" stroke="#E3E6E8"/>';
+  let barsChart;
+  if (mesesOrd.length) {
+    barsChart = '<svg viewBox="0 0 ' + chartW + ' ' + (chartH + 50) + '" style="width:100%;max-width:' + chartW + 'px;height:auto;">' + eixo + barsSvg + '</svg>';
+  } else {
+    barsChart = '<div class="empty-state">Sem movimentos no periodo.</div>';
+  }
+
+  let maxCat = 1;
+  catsOrd.forEach(c => { maxCat = Math.max(maxCat, c[1]); });
+  let catRows = '';
+  catsOrd.forEach(entry => {
+    const cat = entry[0];
+    const val = entry[1];
+    const pct = totalSai > 0 ? Math.round(val / totalSai * 100) : 0;
+    const w = Math.round(val / maxCat * 100);
+    catRows += '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;"><span>' + cat + '</span><strong>' + fmtMoney(val) + ' <span style="color:#8A929A;font-weight:400;">(' + pct + '%)</span></strong></div><div style="background:#EEF0F1;border-radius:4px;height:10px;overflow:hidden;"><div style="width:' + w + '%;height:100%;background:#C1432E;"></div></div></div>';
+  });
+  if (!catRows) catRows = '<div class="empty-state">Sem despesas pagas no periodo.</div>';
+
+  let maxCatEnt = 1;
+  catsEntOrd.forEach(c => { maxCatEnt = Math.max(maxCatEnt, c[1]); });
+  let catEntRows = '';
+  catsEntOrd.forEach(entry => {
+    const cat = entry[0];
+    const val = entry[1];
+    const pct = totalEnt > 0 ? Math.round(val / totalEnt * 100) : 0;
+    const w = Math.round(val / maxCatEnt * 100);
+    catEntRows += '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;"><span>' + cat + '</span><strong>' + fmtMoney(val) + ' <span style="color:#8A929A;font-weight:400;">(' + pct + '%)</span></strong></div><div style="background:#EEF0F1;border-radius:4px;height:10px;overflow:hidden;"><div style="width:' + w + '%;height:100%;background:#3E9B5C;"></div></div></div>';
+  });
+  if (!catEntRows) catEntRows = '<div class="empty-state">Sem recebimentos no periodo.</div>';
+
+  const margem = totalEnt > 0 ? Math.round(saldo / totalEnt * 100) : 0;
+  const corSaldo = saldo >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)';
+  const rotuloSaldo = saldo >= 0 ? 'superavit' : 'deficit';
+
+  let html = '';
+  html += '<div class="page-header"><div><h1 class="page-title">Financeiro</h1><div class="page-sub">Analise do que foi pago e recebido no periodo</div></div></div>';
+  html += '<div class="tab-bar">';
+  html += '<button class="tab-chip" data-fintab="lancamentos">📒 Lançamentos</button>';
+  html += '<button class="tab-chip" data-fintab="fluxo">💰 Fluxo de Caixa</button>';
+  html += '<button class="tab-chip active" data-fintab="analise">📊 Análise</button>';
+  html += '</div>';
+  html += '<div class="card" style="margin-bottom:16px;"><div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">';
+  html += '<div class="form-field"><label>De</label><input type="date" id="an-ini" value="' + ini + '"></div>';
+  html += '<div class="form-field"><label>Ate</label><input type="date" id="an-fim" value="' + fim + '"></div>';
+  html += '<button class="btn btn-primary btn-sm" id="an-aplicar" style="height:37px;">Aplicar</button>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">';
+  html += '<button class="tab-chip" data-atalho="mes">Este mes</button>';
+  html += '<button class="tab-chip" data-atalho="3m">Ultimos 3 meses</button>';
+  html += '<button class="tab-chip" data-atalho="6m">Ultimos 6 meses</button>';
+  html += '<button class="tab-chip" data-atalho="ano">Este ano</button>';
+  html += '</div></div></div>';
+  html += '<div class="grid grid-4" style="margin-bottom:16px;">';
+  html += '<div class="card"><p class="card-title">Recebido</p><div class="kpi-value" style="font-size:26px;color:var(--verde-ok);">' + fmtMoney(totalEnt) + '</div><div class="kpi-label">' + entradas.length + ' entrada(s)</div></div>';
+  html += '<div class="card"><p class="card-title">Pago</p><div class="kpi-value" style="font-size:26px;color:var(--vermelho-alerta);">' + fmtMoney(totalSai) + '</div><div class="kpi-label">' + saidas.length + ' saida(s)</div></div>';
+  html += '<div class="card"><p class="card-title">Resultado</p><div class="kpi-value" style="font-size:26px;color:' + corSaldo + ';">' + fmtMoney(saldo) + '</div><div class="kpi-label">' + rotuloSaldo + ' no periodo</div></div>';
+  html += '<div class="card"><p class="card-title">Margem</p><div class="kpi-value" style="font-size:26px;">' + margem + '%</div><div class="kpi-label">resultado / recebido</div></div>';
+  html += '</div>';
+  html += '<div class="card" style="margin-bottom:16px;"><p class="card-title">Recebido x Pago por mes <span style="font-weight:400;text-transform:none;margin-left:8px;"><span style="color:var(--verde-ok);">[ ]</span> recebido <span style="color:var(--vermelho-alerta);">[ ]</span> pago</span></p>' + barsChart + '</div>';
+  html += '<div class="grid grid-2">';
+  html += '<div class="card"><p class="card-title">Despesas por categoria</p>' + catRows + '</div>';
+  html += '<div class="card"><p class="card-title">Receitas por categoria</p>' + catEntRows + '</div>';
+  html += '</div>';
+  main.innerHTML = html;
+
+  main.querySelectorAll('[data-fintab]').forEach(btn => btn.addEventListener('click', () => {
+    financeTab = btn.dataset.fintab;
+    loadBaseData();
+    views.finance();
+  }));
+  document.getElementById('an-aplicar').addEventListener('click', () => {
+    const i = document.getElementById('an-ini').value;
+    const f = document.getElementById('an-fim').value;
+    if (i && f && i <= f) {
+      analisePeriodo.ini = i;
+      analisePeriodo.fim = f;
+      renderAnaliseFinanceira();
+    } else {
+      toast('Verifique as datas do periodo.', 'error');
+    }
+  });
+  main.querySelectorAll('[data-atalho]').forEach(btn => btn.addEventListener('click', () => {
+    const hoje = new Date();
+    let iniD;
+    const k = btn.dataset.atalho;
+    if (k === 'mes') iniD = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    else if (k === '3m') iniD = new Date(hoje.getFullYear(), hoje.getMonth() - 2, 1);
+    else if (k === '6m') iniD = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1);
+    else iniD = new Date(hoje.getFullYear(), 0, 1);
+    analisePeriodo.ini = iniD.toISOString().slice(0, 10);
+    analisePeriodo.fim = todayISO();
+    renderAnaliseFinanceira();
+  }));
+}
+
+
+function renderFluxoCaixa() {
+  const vendas = Store.list('sales');
+  const lancamentos = Store.list('finance');
+  const hoje = todayISO();
+  const mesAtual = hoje.slice(0, 7);
+
+  // Recebíveis: parcelas pendentes de fretes fechados/concluídos + receitas manuais pendentes
+  const recebiveis = [];
+  vendas.filter(s => s.status === 'fechado' || s.status === 'concluido').forEach(s => {
+    const parcelas = getParcelas(s);
+    parcelas.filter(p => p.pago === 'nao').forEach(p => {
+      recebiveis.push({
+        origem: 'venda', saleId: s.id, num: p.num, totalParcelas: parcelas.length,
+        cliente: s.cliente, detalhe: `${s.origem ? s.origem + ' → ' : ''}${s.destino}`,
+        forma: s.forma_pgto || '—', data: p.data, valor: p.valor, dias: diasAte(p.data)
+      });
+    });
+  });
+  lancamentos.filter(l => l.tipo === 'receita' && l.pago === 'nao').forEach(l => {
+    recebiveis.push({
+      origem: 'finance', finId: l.id, num: 1, totalParcelas: 1,
+      cliente: l.descricao, detalhe: l.categoria || '', forma: '—',
+      data: l.data, valor: Number(l.valor), dias: diasAte(l.data)
+    });
+  });
+  recebiveis.sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+
+  // Pagáveis: despesas manuais pendentes + compras a prazo (combustível/manutenção)
+  const pagaveis = lancamentos.filter(l => l.tipo === 'despesa' && l.pago === 'nao')
+    .map(l => ({ src: 'finance', srcId: l.id, data: l.data, valor: Number(l.valor), descricao: l.descricao, categoria: l.categoria || '', dias: diasAte(l.data) }));
+  Store.list('fuel').filter(f => f.pago === 'nao').forEach(f => {
+    const venc = f.vencimento || f.data;
+    pagaveis.push({ src: 'fuel', srcId: f.id, data: venc, valor: Number(f.valor_total), descricao: `Combustível ${(Store.get('vehicles', f.vehicle_id) || {}).placa || ''} (${f.litros} L)`, categoria: 'Combustível', dias: diasAte(venc) });
+  });
+  Store.list('maintenance').filter(m => m.pago === 'nao' && Number(m.custo) > 0).forEach(m => {
+    const venc = m.vencimento || m.data;
+    pagaveis.push({ src: 'maintenance', srcId: m.id, data: venc, valor: Number(m.custo), descricao: `${m.descricao} — ${(Store.get('vehicles', m.vehicle_id) || {}).placa || ''}`, categoria: 'Manutenção', dias: diasAte(venc) });
+  });
+  pagaveis.sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+
+  const vencidos = recebiveis.filter(r => r.dias !== null && r.dias < 0);
+  const totalVencido = vencidos.reduce((s, r) => s + r.valor, 0);
+  const totalReceber = recebiveis.reduce((s, r) => s + r.valor, 0);
+  const receber30 = recebiveis.filter(r => r.dias !== null && r.dias >= 0 && r.dias <= 30).reduce((s, r) => s + r.valor, 0);
+  const totalPagar = pagaveis.reduce((s, l) => s + Number(l.valor), 0);
+
+  // Projeção: mês atual + 5 seguintes (+ linha de atrasados)
+  const [cy, cm] = mesAtual.split('-').map(Number);
+  const meses = [];
+  for (let i = 0; i < 6; i++) {
+    const dt = new Date(cy, cm - 1 + i, 1);
+    meses.push(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`);
+  }
+  let acumulado = 0;
+  const entradasAtraso = vencidos.reduce((s, r) => s + r.valor, 0);
+  const saidasAtraso = pagaveis.filter(l => l.dias !== null && l.dias < 0).reduce((s, l) => s + Number(l.valor), 0);
+  const projRows = [];
+  if (entradasAtraso > 0 || saidasAtraso > 0) {
+    acumulado += entradasAtraso - saidasAtraso;
+    projRows.push(`<tr>
+      <td><strong style="color:var(--vermelho-alerta);">Em atraso</strong></td>
+      <td style="color:var(--verde-ok);">${fmtMoney(entradasAtraso)}</td>
+      <td style="color:var(--vermelho-alerta);">${fmtMoney(saidasAtraso)}</td>
+      <td style="font-weight:600;">${fmtMoney(entradasAtraso - saidasAtraso)}</td>
+      <td style="font-weight:600;color:${acumulado >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${fmtMoney(acumulado)}</td>
+    </tr>`);
+  }
+  meses.forEach(m2 => {
+    const entradas = recebiveis.filter(r => r.data && r.data.slice(0, 7) === m2 && r.dias >= 0).reduce((s, r) => s + r.valor, 0);
+    const saidas = pagaveis.filter(l => l.data && l.data.slice(0, 7) === m2 && l.dias >= 0).reduce((s, l) => s + Number(l.valor), 0);
+    const saldoMes = entradas - saidas;
+    acumulado += saldoMes;
+    projRows.push(`<tr>
+      <td style="text-transform:capitalize;">${mesLabel(m2)}</td>
+      <td style="color:var(--verde-ok);">${entradas ? fmtMoney(entradas) : '—'}</td>
+      <td style="color:var(--vermelho-alerta);">${saidas ? fmtMoney(saidas) : '—'}</td>
+      <td style="font-weight:600;">${entradas || saidas ? fmtMoney(saldoMes) : '—'}</td>
+      <td style="font-weight:600;color:${acumulado >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${fmtMoney(acumulado)}</td>
+    </tr>`);
+  });
+
+  const recTag = (dias) => {
+    if (dias === null) return '';
+    if (dias < 0) return `<span class="alert-tag vencido">Vencida há ${Math.abs(dias)}d</span>`;
+    if (dias === 0) return `<span class="alert-tag urgente">Vence hoje</span>`;
+    if (dias <= 7) return `<span class="alert-tag urgente">${dias}d</span>`;
+    return `<span class="alert-tag ok">${dias}d</span>`;
+  };
+
+  const recRows = recebiveis.length
+    ? recebiveis.map(r => `
+      <tr>
+        <td>${fmtDate(r.data)}</td>
+        <td><strong>${r.cliente}</strong>${r.detalhe ? `<br><span style="font-size:11px;color:#8A929A;">${r.detalhe}</span>` : ''}</td>
+        <td>${r.totalParcelas > 1 ? `${r.num}/${r.totalParcelas}` : 'única'}</td>
+        <td>${r.forma}</td>
+        <td style="font-weight:600;">${fmtMoney(r.valor)}</td>
+        <td>${recTag(r.dias)}</td>
+        <td>${r.origem === 'venda'
+          ? `<button class="btn btn-primary btn-sm" data-receber-venda="${r.saleId}" data-parcela="${r.num}">✓ Receber</button>`
+          : `<button class="btn btn-primary btn-sm" data-receber-fin="${r.finId}">✓ Receber</button>`}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="7" class="empty-state">Nenhum recebível pendente. 🎉</td></tr>`;
+
+  const pagRows = pagaveis.length
+    ? pagaveis.map(l => `
+      <tr>
+        <td>${fmtDate(l.data)}</td>
+        <td>${l.descricao}<br><span style="font-size:11px;color:#8A929A;">${l.categoria || ''}</span></td>
+        <td style="font-weight:600;color:var(--vermelho-alerta);">${fmtMoney(l.valor)}</td>
+        <td>${recTag(l.dias)}</td>
+        <td><button class="btn btn-ghost btn-sm" data-pagar-src="${l.src}" data-pagar-id="${l.srcId}">✓ Pagar</button></td>
+      </tr>`).join('')
+    : `<tr><td colspan="5" class="empty-state">Nenhuma conta a pagar pendente.</td></tr>`;
+
+  main.innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">Financeiro</h1><div class="page-sub">Recebíveis, contas a pagar e projeção dos próximos meses</div></div>
+    </div>
+
+    <div class="tab-bar">
+      <button class="tab-chip" data-fintab="lancamentos">📒 Lançamentos</button>
+      <button class="tab-chip active" data-fintab="fluxo">💰 Fluxo de Caixa</button>
+      <button class="tab-chip" data-fintab="analise">📊 Análise</button>
+    </div>
+
+    <div class="grid grid-5" style="margin-bottom:16px;">
+      <div class="card"><p class="card-title">Vencidos</p><div class="kpi-value" style="font-size:24px;color:var(--vermelho-alerta);">${fmtMoney(totalVencido)}</div><div class="kpi-label">${vencidos.length} parcela(s) em atraso</div></div>
+      <div class="card"><p class="card-title">A receber (30 dias)</p><div class="kpi-value" style="font-size:24px;color:var(--verde-ok);">${fmtMoney(receber30)}</div></div>
+      <div class="card"><p class="card-title">A receber (total)</p><div class="kpi-value" style="font-size:24px;color:var(--verde-ok);">${fmtMoney(totalReceber)}</div><div class="kpi-label">${recebiveis.length} parcela(s)</div></div>
+      <div class="card"><p class="card-title">A pagar (total)</p><div class="kpi-value" style="font-size:24px;color:var(--vermelho-alerta);">${fmtMoney(totalPagar)}</div></div>
+      <div class="card" style="border-color:${acumulado >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};border-width:2px;"><p class="card-title">Saldo acumulado</p><div class="kpi-value" style="font-size:24px;color:${acumulado >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${fmtMoney(acumulado)}</div><div class="kpi-label">projetado (receber − pagar)</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <p class="card-title">Projeção — próximos 6 meses</p>
+      <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Mês</th><th>Entradas previstas</th><th>Saídas previstas</th><th>Saldo do mês</th><th>Acumulado</th></tr></thead>
+        <tbody>${projRows.join('')}</tbody>
+      </table>
+      </div>
+    </div>
+
+    <div class="page-header" style="margin-top:8px;"><h2 style="font-family:var(--font-display);font-size:20px;margin:0;">Recebíveis (boletos e parcelas)</h2></div>
+    <div class="table-wrap" style="margin-bottom:20px;"><table>
+      <thead><tr><th>Vencimento</th><th>Cliente</th><th>Parcela</th><th>Forma</th><th>Valor</th><th>Situação</th><th></th></tr></thead>
+      <tbody>${recRows}</tbody>
+    </table></div>
+
+    <div class="page-header"><h2 style="font-family:var(--font-display);font-size:20px;margin:0;">Contas a pagar</h2></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Vencimento</th><th>Descrição</th><th>Valor</th><th>Situação</th><th></th></tr></thead>
+      <tbody>${pagRows}</tbody>
+    </table></div>`;
+
+  main.querySelectorAll('[data-fintab]').forEach(btn => btn.addEventListener('click', () => {
+    financeTab = btn.dataset.fintab;
+    loadBaseData();
+    views.finance();
+  }));
+  main.querySelectorAll('[data-receber-venda]').forEach(btn => btn.addEventListener('click', () => {
+    marcarParcelaRecebida(btn.dataset.receberVenda, btn.dataset.parcela);
+    toast('Parcela marcada como recebida.');
+    renderView('finance');
+  }));
+  main.querySelectorAll('[data-receber-fin]').forEach(btn => btn.addEventListener('click', () => {
+    Store.update('finance', btn.dataset.receberFin, { pago: 'sim' });
+    toast('Recebimento registrado.');
+    renderView('finance');
+  }));
+  main.querySelectorAll('[data-pagar-src]').forEach(btn => btn.addEventListener('click', () => {
+    Store.update(btn.dataset.pagarSrc, btn.dataset.pagarId, { pago: 'sim' });
+    toast('Pagamento registrado.');
+    renderView('finance');
+  }));
+}
+
+/* ==================== USUÁRIOS E AUTENTICAÇÃO ==================== */
+const MODULOS = [
+  { key: 'dashboard', label: 'Painel' },
+  { key: 'vehicles', label: 'Veículos' },
+  { key: 'drivers', label: 'Motoristas' },
+  { key: 'deliveries', label: 'Entregas' },
+  { key: 'purchases', label: 'Compras' },
+  { key: 'documents', label: 'Documentos' },
+  { key: 'finance', label: 'Financeiro' },
+  { key: 'commercial', label: 'Vendas' },
+  { key: 'expenses', label: 'Outras Despesas' },
+  { key: 'suppliers', label: 'Fornecedores' },
+  { key: 'customers', label: 'Clientes' },
+  { key: 'reports', label: 'Relatórios' },
+];
+
+async function hashSenha(senha, salt) {
+  const text = salt + '|' + senha;
+  try {
+    if (window.crypto && crypto.subtle) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch (e) { /* fallback abaixo */ }
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 'f' + (h2 >>> 0).toString(16) + (h1 >>> 0).toString(16);
+}
+
+function gerarSalt() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+function sessaoAtual() {
+  try { return JSON.parse(sessionStorage.getItem('frota_sessao')); } catch (e) { return null; }
+}
+
+function temPermissao(view) {
+  const s = sessaoAtual();
+  if (!s) return false;
+  if (s.admin) return true;
+  if (view === 'users') return false;
+  const perms = s.permissoes || [];
+  if (view === 'purchases' && (perms.includes('fuel') || perms.includes('maintenance'))) return true;
+  if (view === 'finance' && perms.includes('cashflow')) return true;
+  return perms.includes(view);
+}
+
+function montarNavPorPermissao() {
+  [...nav.children].forEach(el => {
+    el.classList.toggle('hidden', !temPermissao(el.dataset.view));
+  });
+  const s = sessaoAtual();
+  document.getElementById('user-badge').innerHTML =
+    `Conectado como <strong style="color:var(--texto-claro);">${s.nome}</strong>` +
+    (s.admin ? ' <span style="color:var(--faixa);">(admin)</span>' : '');
+}
+
+function mostrarApp() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  document.getElementById('mobile-bar').classList.remove('hidden');
+  montarNavPorPermissao();
+  const primeiraView = temPermissao('dashboard') ? 'dashboard'
+    : (MODULOS.find(m => temPermissao(m.key)) || {}).key;
+  if (primeiraView) renderView(primeiraView);
+  else main.innerHTML = '<div class="empty-state">Seu usuário não tem acesso a nenhum módulo. Fale com o administrador.</div>';
+}
+
+function telaLogin(msgErro) {
+  const body = document.getElementById('auth-body');
+  body.innerHTML = `
+    ${msgErro ? `<div class="auth-error">${msgErro}</div>` : ''}
+    <form id="login-form">
+      <div class="form-field"><label>Usuário</label><input name="usuario" required autocomplete="username" autofocus></div>
+      <div class="form-field"><label>Senha</label><input name="senha" type="password" required autocomplete="current-password"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-top:6px;">Entrar</button>
+    </form>`;
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const usuario = String(fd.get('usuario')).trim().toLowerCase();
+    const senha = String(fd.get('senha'));
+    const u = Store.list('users').find(x => x.usuario === usuario);
+    if (!u) return telaLogin('Usuário ou senha incorretos.');
+    const h = await hashSenha(senha, u.salt);
+    if (h !== u.hash) return telaLogin('Usuário ou senha incorretos.');
+    sessionStorage.setItem('frota_sessao', JSON.stringify({
+      userId: u.id, nome: u.nome, admin: !!u.admin, permissoes: u.permissoes || []
+    }));
+    mostrarApp();
+  });
+}
+
+function telaPrimeiroAcesso() {
+  const body = document.getElementById('auth-body');
+  body.innerHTML = `
+    <div class="auth-info">Primeiro acesso: crie a conta do administrador. Guarde bem a senha — não há recuperação automática.</div>
+    <form id="setup-form">
+      <div class="form-field"><label>Seu nome</label><input name="nome" required></div>
+      <div class="form-field"><label>Usuário (para login)</label><input name="usuario" required placeholder="ex: delair"></div>
+      <div class="form-field"><label>Senha</label><input name="senha" type="password" required minlength="4"></div>
+      <div class="form-field"><label>Confirmar senha</label><input name="senha2" type="password" required></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-top:6px;">Criar administrador</button>
+    </form>`;
+  document.getElementById('setup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    if (fd.get('senha') !== fd.get('senha2')) {
+      const body2 = document.getElementById('auth-body');
+      body2.insertAdjacentHTML('afterbegin', '<div class="auth-error">As senhas não conferem.</div>');
+      return;
+    }
+    const salt = gerarSalt();
+    const hash = await hashSenha(String(fd.get('senha')), salt);
+    const u = Store.insert('users', {
+      nome: String(fd.get('nome')).trim(),
+      usuario: String(fd.get('usuario')).trim().toLowerCase(),
+      salt, hash, admin: true, permissoes: MODULOS.map(m => m.key)
+    });
+    sessionStorage.setItem('frota_sessao', JSON.stringify({
+      userId: u.id, nome: u.nome, admin: true, permissoes: u.permissoes
+    }));
+    toast('Administrador criado. Bem-vindo!');
+    mostrarApp();
+  });
+}
+
+/* --- Módulo de gestão de usuários (admin) --- */
+function userFormFields(u = {}) {
+  const perms = u.permissoes || MODULOS.map(m => m.key);
+  return `
+    <div class="form-field"><label>Nome</label><input name="nome" value="${u.nome || ''}" required></div>
+    <div class="form-field"><label>Usuário (login)</label><input name="usuario" value="${u.usuario || ''}" required ${u.id ? 'readonly style="background:#F2F3F4;"' : ''}></div>
+    <div class="form-field"><label>${u.id ? 'Nova senha (deixe vazio para manter)' : 'Senha'}</label><input name="senha" type="password" ${u.id ? '' : 'required minlength="4"'}></div>
+    <div class="form-field"><label>Perfil</label>
+      <select name="admin" id="user-admin">
+        <option value="nao" ${!u.admin ? 'selected' : ''}>Usuário comum</option>
+        <option value="sim" ${u.admin ? 'selected' : ''}>Administrador (acesso total)</option>
+      </select>
+    </div>
+    <div class="form-field full"><label>Módulos permitidos (para usuário comum)</label>
+      <div class="perm-grid" id="perm-grid">
+        ${MODULOS.map(m => `<label><input type="checkbox" name="perm_${m.key}" ${perms.includes(m.key) ? 'checked' : ''}> ${m.label}</label>`).join('')}
+      </div>
+    </div>`;
+}
+
+function openUserModal(record) {
+  const isEdit = !!record;
+  openModal(isEdit ? 'Editar usuário' : 'Novo usuário', userFormFields(record || {}), async (payload) => {
+    const usuario = String(payload.usuario).trim().toLowerCase();
+    if (!isEdit && Store.list('users').some(x => x.usuario === usuario)) {
+      toast('Já existe um usuário com esse login.', 'error');
+      return;
+    }
+    const admin = payload.admin === 'sim';
+    const permissoes = admin ? MODULOS.map(m => m.key) : MODULOS.filter(m => payload['perm_' + m.key] === 'on').map(m => m.key);
+    const dados = { nome: String(payload.nome).trim(), usuario, admin, permissoes };
+    if (payload.senha) {
+      dados.salt = gerarSalt();
+      dados.hash = await hashSenha(String(payload.senha), dados.salt);
+    }
+    if (isEdit) {
+      // proteção: não permitir remover o último administrador
+      if (record.admin && !admin) {
+        const outrosAdmins = Store.list('users').filter(x => x.admin && x.id !== record.id).length;
+        if (outrosAdmins === 0) { toast('Não é possível rebaixar o único administrador.', 'error'); return; }
+      }
+      Store.update('users', record.id, dados);
+      const s = sessaoAtual();
+      if (s && s.userId === record.id) {
+        sessionStorage.setItem('frota_sessao', JSON.stringify({ userId: record.id, nome: dados.nome, admin, permissoes }));
+        montarNavPorPermissao();
+      }
+      toast('Usuário atualizado.');
+    } else {
+      Store.insert('users', dados);
+      toast('Usuário criado.');
+    }
+    closeModal();
+    renderView('users');
+  });
+}
+
+views.users = function () {
+  const s = sessaoAtual();
+  if (!s || !s.admin) { main.innerHTML = '<div class="empty-state">Acesso restrito ao administrador.</div>'; return; }
+  const usuarios = Store.list('users');
+
+  const rows = usuarios.map(u => `
+    <tr>
+      <td><strong>${u.nome}</strong></td>
+      <td>${u.usuario}</td>
+      <td>${u.admin ? '<span class="status-pill ativo">Administrador</span>' : '<span class="status-pill inativo">Usuário</span>'}</td>
+      <td style="font-size:12px;color:#6B747B;">${u.admin ? 'Todos os módulos' : (u.permissoes || []).map(k => (MODULOS.find(m => m.key === k) || {}).label).filter(Boolean).join(', ') || 'Nenhum'}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn btn-ghost btn-sm" data-edit="${u.id}">Editar</button>
+          ${u.id === s.userId ? '' : `<button class="btn btn-danger btn-sm" data-del="${u.id}">Excluir</button>`}
+        </div>
+      </td>
+    </tr>`).join('');
+
+  main.innerHTML = `
+    <div class="page-header">
+      <div><h1 class="page-title">Usuários</h1><div class="page-sub">${usuarios.length} usuário(s) — controle de acesso por módulo</div></div>
+      <button class="btn btn-accent" id="btn-new">+ Novo usuário</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nome</th><th>Login</th><th>Perfil</th><th>Módulos</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+
+  document.getElementById('btn-new').addEventListener('click', () => openUserModal());
+  main.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => openUserModal(usuarios.find(x => x.id == btn.dataset.edit))));
+  main.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => {
+    const alvo = usuarios.find(x => x.id == btn.dataset.del);
+    if (alvo.admin && usuarios.filter(x => x.admin).length === 1) { toast('Não é possível excluir o único administrador.', 'error'); return; }
+    if (!confirm(`Excluir o usuário "${alvo.nome}"?`)) return;
+    Store.remove('users', alvo.id);
+    toast('Usuário excluído.');
+    renderView('users');
+  }));
+};
+
+/* ==================== CLIENTES ==================== */
+function customerFormFields(c) {
+  c = c || {};
+  return ''
+    + '<div class="form-field full"><label>Nome / Razão social</label><input name="nome" value="' + (c.nome || '') + '" required placeholder="Ex: Construtora ABC Ltda"></div>'
+    + '<div class="form-field"><label>CNPJ / CPF</label><input name="documento" value="' + (c.documento || '') + '"></div>'
+    + '<div class="form-field"><label>Telefone</label><input name="telefone" value="' + (c.telefone || '') + '"></div>'
+    + '<div class="form-field"><label>Contato (pessoa)</label><input name="contato" value="' + (c.contato || '') + '"></div>'
+    + '<div class="form-field"><label>E-mail</label><input name="email" value="' + (c.email || '') + '"></div>'
+    + '<div class="form-field full"><label>Endereço</label><input name="endereco" value="' + (c.endereco || '') + '"></div>'
+    + '<div class="form-field full"><label>Observações</label><textarea name="observacoes">' + (c.observacoes || '') + '</textarea></div>';
+}
+
+function openCustomerModal(record) {
+  const isEdit = !!record;
+  openModal(isEdit ? 'Editar cliente' : 'Novo cliente', customerFormFields(record || {}), (payload) => {
+    if (isEdit) { Store.update('customers', record.id, payload); toast('Cliente atualizado.'); }
+    else { Store.insert('customers', payload); toast('Cliente cadastrado.'); }
+    closeModal();
+    renderView('customers');
+  });
+}
+
+views.customers = function () {
+  const clientes = Store.list('customers').sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+  const rows = clientes.map(c => ''
+    + '<tr>'
+    + '<td><strong>' + c.nome + '</strong></td>'
+    + '<td>' + (c.documento || '—') + '</td>'
+    + '<td>' + (c.telefone || '—') + (c.contato ? '<br><span style="font-size:11px;color:#8A929A;">' + c.contato + '</span>' : '') + '</td>'
+    + '<td>' + (c.email || '—') + '</td>'
+    + '<td><div class="row-actions"><button class="btn btn-ghost btn-sm" data-edit="' + c.id + '">Editar</button><button class="btn btn-danger btn-sm" data-del="' + c.id + '" title="Excluir">🗑</button></div></td>'
+    + '</tr>').join('');
+
+  main.innerHTML = ''
+    + '<div class="page-header">'
+    + '<div><h1 class="page-title">Clientes</h1><div class="page-sub">' + clientes.length + ' cliente(s) cadastrado(s)</div></div>'
+    + '<button class="btn btn-accent" id="btn-new">+ Novo cliente</button>'
+    + '</div>'
+    + '<div class="table-wrap"><table>'
+    + '<thead><tr><th>Nome</th><th>CNPJ/CPF</th><th>Contato</th><th>E-mail</th><th></th></tr></thead>'
+    + '<tbody>' + (rows || '<tr><td colspan="5" class="empty-state">Nenhum cliente cadastrado. Clique em "+ Novo cliente".</td></tr>') + '</tbody>'
+    + '</table></div>';
+
+  document.getElementById('btn-new').addEventListener('click', () => openCustomerModal());
+  main.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => openCustomerModal(clientes.find(x => x.id == btn.dataset.edit))));
+  main.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Excluir este cliente? As vendas já lançadas com ele não são afetadas.')) return;
+    Store.remove('customers', btn.dataset.del);
+    toast('Cliente excluído.');
+    renderView('customers');
+  }));
+};
+
+// Campo de seleção de cliente (dropdown da lista + preserva texto livre antigo)
+function customerSelectField(label, valorAtual, campo) {
+  campo = campo || 'cliente';
+  const lista = Store.list('customers').sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+  if (!lista.length) {
+    return '<div class="form-field"><label>' + label + '</label><input name="' + campo + '" value="' + (valorAtual || '') + '" required placeholder="Cadastre em Clientes ou digite"></div>';
+  }
+  let existe = false;
+  let opts = '<option value="">— selecione —</option>';
+  lista.forEach(c => {
+    const sel = c.nome === valorAtual;
+    if (sel) existe = true;
+    opts += '<option value="' + c.nome + '"' + (sel ? ' selected' : '') + '>' + c.nome + '</option>';
+  });
+  if (valorAtual && !existe) opts += '<option value="' + valorAtual + '" selected>' + valorAtual + ' (não cadastrado)</option>';
+  return '<div class="form-field"><label>' + label + '</label><select name="' + campo + '" required>' + opts + '</select></div>';
+}
+
+/* ==================== FORNECEDORES ==================== */
+function supplierFormFields(f) {
+  f = f || {};
+  return ''
+    + '<div class="form-field full"><label>Nome / Razão social</label><input name="nome" value="' + (f.nome || '') + '" required placeholder="Ex: Auto Peças Curitiba Ltda"></div>'
+    + '<div class="form-field"><label>CNPJ / CPF</label><input name="documento" value="' + (f.documento || '') + '"></div>'
+    + '<div class="form-field"><label>Tipo</label><select name="tipo">'
+    + '<option value="Peças/Serviços"' + (f.tipo === 'Peças/Serviços' ? ' selected' : '') + '>Peças/Serviços</option>'
+    + '<option value="Combustível"' + (f.tipo === 'Combustível' ? ' selected' : '') + '>Combustível</option>'
+    + '<option value="Oficina"' + (f.tipo === 'Oficina' ? ' selected' : '') + '>Oficina</option>'
+    + '<option value="Pneus"' + (f.tipo === 'Pneus' ? ' selected' : '') + '>Pneus</option>'
+    + '<option value="Outros"' + (f.tipo === 'Outros' || !f.tipo ? ' selected' : '') + '>Outros</option>'
+    + '</select></div>'
+    + '<div class="form-field"><label>Telefone</label><input name="telefone" value="' + (f.telefone || '') + '"></div>'
+    + '<div class="form-field"><label>Contato (pessoa)</label><input name="contato" value="' + (f.contato || '') + '"></div>'
+    + '<div class="form-field full"><label>Endereço</label><input name="endereco" value="' + (f.endereco || '') + '"></div>'
+    + '<div class="form-field full"><label>Observações</label><textarea name="observacoes">' + (f.observacoes || '') + '</textarea></div>';
+}
+
+function openSupplierModal(record) {
+  const isEdit = !!record;
+  openModal(isEdit ? 'Editar fornecedor' : 'Novo fornecedor', supplierFormFields(record || {}), (payload) => {
+    if (isEdit) { Store.update('suppliers', record.id, payload); toast('Fornecedor atualizado.'); }
+    else { Store.insert('suppliers', payload); toast('Fornecedor cadastrado.'); }
+    closeModal();
+    renderView('suppliers');
+  });
+}
+
+views.suppliers = function () {
+  const fornecedores = Store.list('suppliers').sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+  const rows = fornecedores.map(f => ''
+    + '<tr>'
+    + '<td><strong>' + f.nome + '</strong></td>'
+    + '<td>' + (f.tipo || '—') + '</td>'
+    + '<td>' + (f.documento || '—') + '</td>'
+    + '<td>' + (f.telefone || '—') + (f.contato ? '<br><span style="font-size:11px;color:#8A929A;">' + f.contato + '</span>' : '') + '</td>'
+    + '<td><div class="row-actions"><button class="btn btn-ghost btn-sm" data-edit="' + f.id + '">Editar</button><button class="btn btn-danger btn-sm" data-del="' + f.id + '" title="Excluir">🗑</button></div></td>'
+    + '</tr>').join('');
+
+  main.innerHTML = ''
+    + '<div class="page-header">'
+    + '<div><h1 class="page-title">Fornecedores</h1><div class="page-sub">' + fornecedores.length + ' fornecedor(es) cadastrado(s)</div></div>'
+    + '<button class="btn btn-accent" id="btn-new">+ Novo fornecedor</button>'
+    + '</div>'
+    + '<div class="table-wrap"><table>'
+    + '<thead><tr><th>Nome</th><th>Tipo</th><th>CNPJ/CPF</th><th>Contato</th><th></th></tr></thead>'
+    + '<tbody>' + (rows || '<tr><td colspan="5" class="empty-state">Nenhum fornecedor cadastrado. Clique em "+ Novo fornecedor".</td></tr>') + '</tbody>'
+    + '</table></div>';
+
+  document.getElementById('btn-new').addEventListener('click', () => openSupplierModal());
+  main.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => openSupplierModal(fornecedores.find(x => x.id == btn.dataset.edit))));
+  main.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Excluir este fornecedor? As compras já lançadas com ele não são afetadas.')) return;
+    Store.remove('suppliers', btn.dataset.del);
+    toast('Fornecedor excluído.');
+    renderView('suppliers');
+  }));
+};
+
+// Campo de seleção de fornecedor reutilizável (dropdown da lista + preserva texto livre antigo)
+function supplierSelectField(label, valorAtual, campo) {
+  campo = campo || 'fornecedor';
+  const lista = Store.list('suppliers').sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+  if (!lista.length) {
+    return '<div class="form-field"><label>' + label + '</label><input name="' + campo + '" value="' + (valorAtual || '') + '" placeholder="Cadastre em Fornecedores ou digite"></div>';
+  }
+  let existe = false;
+  let opts = '<option value="">— selecione —</option>';
+  lista.forEach(f => {
+    const sel = f.nome === valorAtual;
+    if (sel) existe = true;
+    opts += '<option value="' + f.nome + '"' + (sel ? ' selected' : '') + '>' + f.nome + '</option>';
+  });
+  if (valorAtual && !existe) opts += '<option value="' + valorAtual + '" selected>' + valorAtual + ' (não cadastrado)</option>';
+  return '<div class="form-field"><label>' + label + '</label><select name="' + campo + '">' + opts + '</select></div>';
+}
+
+/* ==================== RELATORIOS ==================== */
+const relatorioEstado = { aba: 'vendas', ini: null, fim: null, dim: 'cliente', detalhe: null };
+
+// Coleta itens de VENDAS no periodo (por status fechado/concluido)
+function relVendasItens(ini, fim) {
+  const dentro = (d) => d && d >= ini && d <= fim;
+  const itens = [];
+  Store.list('sales').filter(s => s.status === 'fechado' || s.status === 'concluido').forEach(s => {
+    if (!dentro(s.data)) return;
+    itens.push({
+      cliente: s.cliente || 'Sem cliente',
+      destino: s.destino || 'Sem destino',
+      origem: s.origem || 'Sem origem',
+      forma: s.forma_pgto || 'Nao informado',
+      valor: Number(s.valor_total != null ? s.valor_total : s.valor) || 0,
+      valorFrete: Number(s.valor) || 0,
+      valorAjudante: Number(s.valor_ajudantes_total) || 0,
+      qtdEntregas: Math.max(1, Number(s.qtd_entregas) || 1),
+      peso: Number(s.peso_kg) || 0,
+      data: s.data,
+      status: s.status,
+      descricao: s.descricao_carga || ''
+    });
+  });
+  return itens;
+}
+
+// Coleta itens de COMPRAS no periodo (combustivel, manutencao, compras gerais)
+function relComprasItens(ini, fim) {
+  const dentro = (d) => d && d >= ini && d <= fim;
+  const itens = [];
+  Store.list('fuel').forEach(f => {
+    if (!dentro(f.data)) return;
+    itens.push({
+      fornecedor: f.posto || 'Nao informado',
+      categoria: 'Combustivel',
+      valor: Number(f.valor_total) || 0,
+      data: f.data,
+      descricao: 'Abastecimento ' + ((Store.get('vehicles', f.vehicle_id) || {}).placa || '') + ' (' + (f.litros || 0) + ' L)'
+    });
+  });
+  Store.list('maintenance').forEach(m => {
+    if (!dentro(m.data) || !(Number(m.custo) > 0)) return;
+    itens.push({
+      fornecedor: m.oficina || 'Nao informado',
+      categoria: 'Manutencao',
+      valor: Number(m.custo) || 0,
+      data: m.data,
+      descricao: (m.descricao || 'Manutencao') + ' — ' + ((Store.get('vehicles', m.vehicle_id) || {}).placa || '')
+    });
+  });
+  Store.list('finance').filter(l => l.origem === 'compra' && !l.ref_tabela).forEach(l => {
+    if (!dentro(l.data)) return;
+    itens.push({
+      fornecedor: l.fornecedor || 'Nao informado',
+      categoria: l.categoria || 'Outros',
+      valor: Number(l.valor) || 0,
+      data: l.data,
+      descricao: (l.descricao || '').replace(/ \(parcela \d+\/\d+\)$/, '').replace(/^[^:]+:\s*/, '')
+    });
+  });
+  return itens;
+}
+
+// Agrupa por uma dimensao (campo) e ordena desc; retorna [{chave, valor, qtd}]
+function relAgrupar(itens, campo) {
+  const mapa = {};
+  itens.forEach(it => {
+    const k = it[campo] || 'Nao informado';
+    if (!mapa[k]) mapa[k] = { chave: k, valor: 0, qtd: 0 };
+    mapa[k].valor += it.valor;
+    mapa[k].qtd += 1;
+  });
+  return Object.values(mapa).sort((a, b) => b.valor - a.valor);
+}
+
+// Classifica curva ABC: A ate 80%, B ate 95%, C o resto (acumulado)
+function relCurvaABC(grupos, total) {
+  let acum = 0;
+  return grupos.map(g => {
+    acum += g.valor;
+    const pctAcum = total > 0 ? (acum / total) * 100 : 0;
+    const pct = total > 0 ? (g.valor / total) * 100 : 0;
+    let classe = 'C';
+    if (pctAcum <= 80) classe = 'A';
+    else if (pctAcum <= 95) classe = 'B';
+    return { chave: g.chave, valor: g.valor, qtd: g.qtd, pct: pct, pctAcum: pctAcum, classe: classe };
+  });
+}
+
+function relClasseCor(c) {
+  if (c === 'A') return '#3E9B5C';
+  if (c === 'B') return '#F2B705';
+  return '#8A929A';
+}
+
+function renderRelatorios() {
+  if (!relatorioEstado.ini) {
+    const h = new Date();
+    relatorioEstado.ini = new Date(h.getFullYear(), h.getMonth() - 5, 1).toISOString().slice(0, 10);
+    relatorioEstado.fim = todayISO();
+  }
+  const aba = relatorioEstado.aba;
+  const ini = relatorioEstado.ini;
+  const fim = relatorioEstado.fim;
+
+  const ehVendas = aba === 'vendas';
+  const itens = ehVendas ? relVendasItens(ini, fim) : relComprasItens(ini, fim);
+  const total = itens.reduce((s, it) => s + it.valor, 0);
+  const qtd = itens.length;
+  const ticket = qtd > 0 ? total / qtd : 0;
+
+  // dimensoes disponiveis por aba
+  const dims = ehVendas
+    ? [['cliente', 'Cliente'], ['destino', 'Destino'], ['forma', 'Forma de pgto']]
+    : [['fornecedor', 'Fornecedor'], ['categoria', 'Categoria']];
+  // garante dimensao valida ao trocar de aba
+  if (!dims.some(d => d[0] === relatorioEstado.dim)) relatorioEstado.dim = dims[0][0];
+  const dim = relatorioEstado.dim;
+
+  const grupos = relAgrupar(itens, dim);
+  const abc = relCurvaABC(grupos, total);
+
+  const contA = abc.filter(x => x.classe === 'A');
+  const contB = abc.filter(x => x.classe === 'B');
+  const contC = abc.filter(x => x.classe === 'C');
+  const valA = contA.reduce((s, x) => s + x.valor, 0);
+  const valB = contB.reduce((s, x) => s + x.valor, 0);
+  const valC = contC.reduce((s, x) => s + x.valor, 0);
+
+  // linhas da tabela ABC
+  let linhas = '';
+  abc.forEach((x, i) => {
+    const w = total > 0 ? Math.round(x.valor / abc[0].valor * 100) : 0;
+    const cor = relClasseCor(x.classe);
+    linhas += ''
+      + '<tr data-drill="' + encodeURIComponent(x.chave) + '" style="cursor:pointer;">'
+      + '<td style="color:#8A929A;">' + (i + 1) + '</td>'
+      + '<td><strong style="color:var(--asfalto);">' + x.chave + '</strong> <span style="font-size:11px;color:var(--faixa-escura);">▸ ver detalhes</span></td>'
+      + '<td><div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;background:#EEF0F1;border-radius:4px;height:8px;min-width:60px;overflow:hidden;"><div style="width:' + w + '%;height:100%;background:' + cor + ';"></div></div><span style="font-weight:600;white-space:nowrap;">' + fmtMoney(x.valor) + '</span></div></td>'
+      + '<td>' + x.qtd + '</td>'
+      + '<td>' + x.pct.toFixed(1) + '%</td>'
+      + '<td>' + x.pctAcum.toFixed(1) + '%</td>'
+      + '<td><span class="status-pill" style="background:' + cor + '22;color:' + cor + ';">' + x.classe + '</span></td>'
+      + '</tr>';
+  });
+  if (!linhas) linhas = '<tr><td colspan="7" class="empty-state">Sem dados no periodo selecionado.</td></tr>';
+
+  // chips de dimensao
+  let dimChips = '';
+  dims.forEach(d => {
+    dimChips += '<button class="tab-chip ' + (d[0] === dim ? 'active' : '') + '" data-dim="' + d[0] + '">' + d[1] + '</button>';
+  });
+
+  const tituloDim = (dims.find(d => d[0] === dim) || ['', ''])[1];
+  const corTotal = ehVendas ? 'var(--verde-ok)' : 'var(--vermelho-alerta)';
+
+  let html = '';
+  html += '<div class="page-header"><div><h1 class="page-title">Relatorios</h1><div class="page-sub">Analises interativas de vendas e compras — Curva ABC e rankings</div></div></div>';
+
+  // abas Vendas / Compras
+  html += '<div class="tab-bar">';
+  html += '<button class="tab-chip ' + (ehVendas ? 'active' : '') + '" data-relaba="vendas">Vendas</button>';
+  html += '<button class="tab-chip ' + (!ehVendas ? 'active' : '') + '" data-relaba="compras">Compras</button>';
+  html += '</div>';
+
+  // filtro de periodo
+  html += '<div class="card" style="margin-bottom:16px;"><div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">';
+  html += '<div class="form-field"><label>De</label><input type="date" id="rel-ini" value="' + ini + '"></div>';
+  html += '<div class="form-field"><label>Ate</label><input type="date" id="rel-fim" value="' + fim + '"></div>';
+  html += '<button class="btn btn-primary btn-sm" id="rel-aplicar" style="height:37px;">Aplicar</button>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">';
+  html += '<button class="tab-chip" data-relatalho="mes">Este mes</button>';
+  html += '<button class="tab-chip" data-relatalho="3m">Ultimos 3 meses</button>';
+  html += '<button class="tab-chip" data-relatalho="6m">Ultimos 6 meses</button>';
+  html += '<button class="tab-chip" data-relatalho="ano">Este ano</button>';
+  html += '</div></div></div>';
+
+  // KPIs
+  html += '<div class="grid grid-4" style="margin-bottom:16px;">';
+  html += '<div class="card"><p class="card-title">' + (ehVendas ? 'Faturamento' : 'Total comprado') + '</p><div class="kpi-value" style="font-size:26px;color:' + corTotal + ';">' + fmtMoney(total) + '</div></div>';
+  html += '<div class="card"><p class="card-title">' + (ehVendas ? 'Fretes' : 'Compras') + '</p><div class="kpi-value" style="font-size:26px;">' + qtd + '</div><div class="kpi-label">registros no periodo</div></div>';
+  html += '<div class="card"><p class="card-title">Ticket medio</p><div class="kpi-value" style="font-size:26px;">' + fmtMoney(ticket) + '</div></div>';
+  html += '<div class="card"><p class="card-title">' + tituloDim + 's distintos</p><div class="kpi-value" style="font-size:26px;">' + grupos.length + '</div></div>';
+  html += '</div>';
+
+  // resumo ABC
+  html += '<div class="grid grid-4" style="margin-bottom:16px;">';
+  html += '<div class="card" style="border-left:4px solid #3E9B5C;"><p class="card-title">Classe A</p><div class="kpi-value" style="font-size:22px;color:#3E9B5C;">' + fmtMoney(valA) + '</div><div class="kpi-label">' + contA.length + ' ' + tituloDim.toLowerCase() + '(s) — ' + (total > 0 ? Math.round(valA / total * 100) : 0) + '% do valor</div></div>';
+  html += '<div class="card" style="border-left:4px solid #F2B705;"><p class="card-title">Classe B</p><div class="kpi-value" style="font-size:22px;color:#C99A00;">' + fmtMoney(valB) + '</div><div class="kpi-label">' + contB.length + ' ' + tituloDim.toLowerCase() + '(s) — ' + (total > 0 ? Math.round(valB / total * 100) : 0) + '% do valor</div></div>';
+  html += '<div class="card" style="border-left:4px solid #8A929A;"><p class="card-title">Classe C</p><div class="kpi-value" style="font-size:22px;color:#6B747B;">' + fmtMoney(valC) + '</div><div class="kpi-label">' + contC.length + ' ' + tituloDim.toLowerCase() + '(s) — ' + (total > 0 ? Math.round(valC / total * 100) : 0) + '% do valor</div></div>';
+  html += '<div class="card"><p class="card-title">Como ler</p><div style="font-size:12px;color:#6B747B;line-height:1.5;">A = ate 80% do valor (prioridade). B = 80–95%. C = os 5% finais. Regra 80/20.</div></div>';
+  html += '</div>';
+
+  // seletor de dimensao + acoes
+  html += '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">';
+  html += '<p class="card-title" style="margin:0;">Curva ABC por ' + tituloDim.toLowerCase() + '</p>';
+  html += '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">';
+  html += '<div class="tab-bar" style="margin:0;">' + dimChips + '</div>';
+  html += '<button class="btn btn-ghost btn-sm" id="rel-csv">⬇ CSV</button>';
+  html += '<button class="btn btn-ghost btn-sm" id="rel-xlsx">⬇ Excel (abas)</button>';
+  html += '<button class="btn btn-ghost btn-sm" id="rel-print">🖨 Imprimir</button>';
+  html += '</div>';
+  html += '</div>';
+  html += '<div style="overflow-x:auto;"><table>';
+  html += '<thead><tr><th>#</th><th>' + tituloDim + '</th><th>Valor</th><th>Qtd</th><th>%</th><th>% acum.</th><th>Classe</th></tr></thead>';
+  html += '<tbody>' + linhas + '</tbody></table></div></div>';
+
+  // painel de detalhamento (drill-down) do item selecionado
+  if (relatorioEstado.detalhe) {
+    const chaveSel = relatorioEstado.detalhe;
+    const detItens = itens.filter(it => (it[dim] || 'Nao informado') === chaveSel)
+      .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+    const detTotal = detItens.reduce((s, it) => s + it.valor, 0);
+
+    let detLinhas = '';
+    detItens.forEach(it => {
+      if (ehVendas) {
+        const temAjud = Number(it.valorAjudante) > 0;
+        detLinhas += '<tr>'
+          + '<td>' + fmtDate(it.data) + '</td>'
+          + '<td>' + (it.origem !== 'Sem origem' ? it.origem + ' → ' : '') + '<strong>' + it.destino + '</strong></td>'
+          + '<td>' + (it.descricao || '—') + '</td>'
+          + '<td>' + (it.peso ? it.peso.toLocaleString('pt-BR') + ' kg' : '—') + '</td>'
+          + '<td style="text-align:center;">' + (it.qtdEntregas || 1) + '</td>'
+          + '<td>' + it.forma + '</td>'
+          + '<td style="text-align:right;">' + fmtMoney(it.valorFrete || 0) + '</td>'
+          + '<td style="text-align:right;color:' + (temAjud ? 'var(--faixa-escura)' : '#8A929A') + ';">' + (temAjud ? fmtMoney(it.valorAjudante) : '—') + '</td>'
+          + '<td style="font-weight:600;text-align:right;">' + fmtMoney(it.valor) + '</td>'
+          + '</tr>';
+      } else {
+        detLinhas += '<tr>'
+          + '<td>' + fmtDate(it.data) + '</td>'
+          + '<td>' + it.categoria + '</td>'
+          + '<td>' + (it.descricao || '—') + '</td>'
+          + '<td style="font-weight:600;text-align:right;">' + fmtMoney(it.valor) + '</td>'
+          + '</tr>';
+      }
+    });
+
+    const cabDet = ehVendas
+      ? '<tr><th>Data</th><th>Rota</th><th>Carga</th><th>Peso</th><th style="text-align:center;">Entregas</th><th>Pgto</th><th style="text-align:right;">Frete</th><th style="text-align:right;">Ajudantes</th><th style="text-align:right;">Total</th></tr>'
+      : '<tr><th>Data</th><th>Categoria</th><th>Descrição</th><th style="text-align:right;">Valor</th></tr>';
+    const colspanDet = ehVendas ? 9 : 4;
+
+    let html2 = '';
+    html2 += '<div class="card" style="margin-top:16px;border:2px solid var(--faixa);">';
+    html2 += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">';
+    html2 += '<div><p class="card-title" style="margin:0;">' + (ehVendas ? '📄 ' : '📄 ') + chaveSel + '</p><div class="page-sub" style="margin-top:2px;">' + detItens.length + ' ' + (ehVendas ? 'venda(s)' : 'compra(s)') + ' no período · total ' + fmtMoney(detTotal) + '</div></div>';
+    html2 += '<button class="btn btn-ghost btn-sm" id="rel-fechar-det">✕ Fechar</button>';
+    html2 += '</div>';
+    html2 += '<div style="overflow-x:auto;"><table><thead>' + cabDet + '</thead><tbody>';
+    html2 += (detLinhas || '<tr><td colspan="' + colspanDet + '" class="empty-state">Sem itens.</td></tr>');
+    html2 += '</tbody></table></div></div>';
+    html += html2;
+  }
+
+  main.innerHTML = html;
+
+  // handlers de aba
+  main.querySelectorAll('[data-relaba]').forEach(btn => btn.addEventListener('click', () => {
+    relatorioEstado.aba = btn.dataset.relaba;
+    relatorioEstado.detalhe = null;
+    renderRelatorios();
+  }));
+  // handlers de dimensao
+  main.querySelectorAll('[data-dim]').forEach(btn => btn.addEventListener('click', () => {
+    relatorioEstado.dim = btn.dataset.dim;
+    relatorioEstado.detalhe = null;
+    renderRelatorios();
+  }));
+  // clique na linha abre detalhamento
+  main.querySelectorAll('[data-drill]').forEach(row => row.addEventListener('click', () => {
+    relatorioEstado.detalhe = decodeURIComponent(row.dataset.drill);
+    renderRelatorios();
+  }));
+  // fechar detalhamento
+  const btnFecharDet = document.getElementById('rel-fechar-det');
+  if (btnFecharDet) btnFecharDet.addEventListener('click', () => {
+    relatorioEstado.detalhe = null;
+    renderRelatorios();
+  });
+  // aplicar periodo
+  document.getElementById('rel-aplicar').addEventListener('click', () => {
+    const i = document.getElementById('rel-ini').value;
+    const f = document.getElementById('rel-fim').value;
+    if (i && f && i <= f) {
+      relatorioEstado.ini = i;
+      relatorioEstado.fim = f;
+      renderRelatorios();
+    } else {
+      toast('Verifique as datas do periodo.', 'error');
+    }
+  });
+  // atalhos de periodo
+  main.querySelectorAll('[data-relatalho]').forEach(btn => btn.addEventListener('click', () => {
+    const hoje = new Date();
+    let iniD;
+    const k = btn.dataset.relatalho;
+    if (k === 'mes') iniD = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    else if (k === '3m') iniD = new Date(hoje.getFullYear(), hoje.getMonth() - 2, 1);
+    else if (k === '6m') iniD = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1);
+    else iniD = new Date(hoje.getFullYear(), 0, 1);
+    relatorioEstado.ini = iniD.toISOString().slice(0, 10);
+    relatorioEstado.fim = todayISO();
+    renderRelatorios();
+  }));
+
+  // exportar CSV
+  document.getElementById('rel-csv').addEventListener('click', () => {
+    exportarRelatorioCSV(abc, tituloDim, ehVendas, ini, fim);
+  });
+  // exportar Excel com abas por cliente/fornecedor
+  document.getElementById('rel-xlsx').addEventListener('click', () => {
+    exportarRelatorioXLSX(abc, grupos, itens, dim, tituloDim, ehVendas, ini, fim);
+  });
+  // imprimir / salvar PDF
+  document.getElementById('rel-print').addEventListener('click', () => {
+    imprimirRelatorio(abc, tituloDim, ehVendas, ini, fim, total, ticket, qtd, valA, valB, valC, contA.length, contB.length, contC.length);
+  });
+}
+
+function exportarRelatorioCSV(abc, tituloDim, ehVendas, ini, fim) {
+  const sep = ';';
+  let csv = (ehVendas ? 'Relatorio de Vendas' : 'Relatorio de Compras') + ' - Curva ABC por ' + tituloDim + '\n';
+  csv += 'Periodo:' + sep + fmtDate(ini) + ' a ' + fmtDate(fim) + '\n\n';
+  csv += ['#', tituloDim, 'Valor', 'Qtd', '%', '% acumulado', 'Classe'].join(sep) + '\n';
+  abc.forEach((x, i) => {
+    const valorFmt = x.valor.toFixed(2).replace('.', ',');
+    const linha = [
+      (i + 1),
+      '"' + String(x.chave).replace(/"/g, '""') + '"',
+      valorFmt,
+      x.qtd,
+      x.pct.toFixed(1).replace('.', ',') + '%',
+      x.pctAcum.toFixed(1).replace('.', ',') + '%',
+      x.classe
+    ];
+    csv += linha.join(sep) + '\n';
+  });
+  const total = abc.reduce((s, x) => s + x.valor, 0);
+  csv += '\nTOTAL' + sep + sep + total.toFixed(2).replace('.', ',') + '\n';
+
+  // BOM para acentos abrirem certo no Excel
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (ehVendas ? 'relatorio_vendas_' : 'relatorio_compras_') + tituloDim.toLowerCase() + '_' + ini + '_a_' + fim + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('CSV exportado.');
+}
+
+function exportarRelatorioXLSX(abc, grupos, itens, dim, tituloDim, ehVendas, ini, fim) {
+  const usados = {};
+  const abas = [];
+
+  // Aba Resumo = curva ABC
+  const resumo = [];
+  resumo.push([(ehVendas ? 'Relatorio de Vendas' : 'Relatorio de Compras') + ' - Curva ABC por ' + tituloDim]);
+  resumo.push(['Periodo: ' + fmtDate(ini) + ' a ' + fmtDate(fim)]);
+  resumo.push([]);
+  resumo.push(['#', tituloDim, 'Valor', 'Qtd', '%', '% acumulado', 'Classe']);
+  abc.forEach((x, i) => {
+    resumo.push([i + 1, x.chave, Math.round(x.valor * 100) / 100, x.qtd, Math.round(x.pct * 10) / 10, Math.round(x.pctAcum * 10) / 10, x.classe]);
+  });
+  const totalGeral = abc.reduce((s, x) => s + x.valor, 0);
+  resumo.push([]);
+  resumo.push(['', 'TOTAL', Math.round(totalGeral * 100) / 100, abc.reduce((s, x) => s + x.qtd, 0), '', '', '']);
+  abas.push({ nome: _sheetName('Resumo ABC', usados), linhas: resumo });
+
+  // Uma aba por grupo (cliente/fornecedor), com o detalhamento das transacoes
+  grupos.forEach(g => {
+    const itensGrupo = itens.filter(it => (it[dim] || 'Nao informado') === g.chave)
+      .sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    const linhas = [];
+    linhas.push([tituloDim + ': ' + g.chave]);
+    linhas.push(['Total: ' + fmtMoney(g.valor) + '  |  ' + g.qtd + (ehVendas ? ' venda(s)' : ' compra(s)')]);
+    linhas.push([]);
+    if (ehVendas) {
+      linhas.push(['Data', 'Origem', 'Destino', 'Carga', 'Peso (kg)', 'Entregas', 'Forma pgto', 'Status', 'Frete (R$)', 'Ajudantes (R$)', 'Total (R$)']);
+      itensGrupo.forEach(it => {
+        linhas.push([
+          it.data,
+          it.origem !== 'Sem origem' ? it.origem : '',
+          it.destino,
+          it.descricao || '',
+          it.peso || 0,
+          it.qtdEntregas || 1,
+          it.forma,
+          it.status === 'concluido' ? 'Concluido' : 'Fechado',
+          Math.round((it.valorFrete || 0) * 100) / 100,
+          Math.round((it.valorAjudante || 0) * 100) / 100,
+          Math.round(it.valor * 100) / 100
+        ]);
+      });
+    } else {
+      linhas.push(['Data', 'Categoria', 'Descricao', 'Valor (R$)']);
+      itensGrupo.forEach(it => {
+        linhas.push([it.data, it.categoria, it.descricao || '', Math.round(it.valor * 100) / 100]);
+      });
+    }
+    linhas.push([]);
+    let colTotal;
+    if (ehVendas) {
+      const totFrete = itensGrupo.reduce((s, it) => s + (it.valorFrete || 0), 0);
+      const totAjud = itensGrupo.reduce((s, it) => s + (it.valorAjudante || 0), 0);
+      colTotal = ['', '', '', '', '', '', '', 'TOTAL', Math.round(totFrete * 100) / 100, Math.round(totAjud * 100) / 100, Math.round(g.valor * 100) / 100];
+    } else {
+      colTotal = ['', '', 'TOTAL', Math.round(g.valor * 100) / 100];
+    }
+    linhas.push(colTotal);
+    abas.push({ nome: _sheetName(g.chave, usados), linhas: linhas });
+  });
+
+  if (abas.length <= 1) { toast('Sem dados no periodo para exportar.', 'error'); return; }
+
+  const bytes = gerarXLSX(abas);
+  const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (ehVendas ? 'relatorio_vendas_por_' : 'relatorio_compras_por_') + tituloDim.toLowerCase() + '_' + ini + '_a_' + fim + '.xlsx';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Excel gerado com ' + (abas.length - 1) + ' aba(s) de ' + tituloDim.toLowerCase() + '.');
+}
+
+function imprimirRelatorio(abc, tituloDim, ehVendas, ini, fim, total, ticket, qtd, valA, valB, valC, nA, nB, nC) {  let corpo = '';
+  abc.forEach((x, i) => {
+    const cor = x.classe === 'A' ? '#3E9B5C' : (x.classe === 'B' ? '#C99A00' : '#8A929A');
+    corpo += '<tr>'
+      + '<td>' + (i + 1) + '</td>'
+      + '<td>' + x.chave + '</td>'
+      + '<td style="text-align:right;">' + fmtMoney(x.valor) + '</td>'
+      + '<td style="text-align:center;">' + x.qtd + '</td>'
+      + '<td style="text-align:right;">' + x.pct.toFixed(1) + '%</td>'
+      + '<td style="text-align:right;">' + x.pctAcum.toFixed(1) + '%</td>'
+      + '<td style="text-align:center;color:' + cor + ';font-weight:bold;">' + x.classe + '</td>'
+      + '</tr>';
+  });
+  const titulo = ehVendas ? 'Relatorio de Vendas' : 'Relatorio de Compras';
+  let doc = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + titulo + '</title>';
+  doc += '<style>body{font-family:Arial,sans-serif;color:#1B1E20;padding:30px;}h1{font-size:22px;margin:0 0 4px 0;}h2{font-size:15px;color:#6B747B;font-weight:normal;margin:0 0 20px 0;}';
+  doc += 'table{width:100%;border-collapse:collapse;font-size:13px;}th{background:#1E2124;color:#fff;text-align:left;padding:8px 10px;}td{padding:7px 10px;border-bottom:1px solid #eee;}';
+  doc += '.kpis{display:flex;gap:20px;margin:16px 0 24px 0;flex-wrap:wrap;}.kpi{border:1px solid #ddd;border-radius:8px;padding:10px 16px;}.kpi b{display:block;font-size:18px;}.kpi span{font-size:11px;color:#6B747B;text-transform:uppercase;}';
+  doc += '.marca{color:#F2B705;font-weight:bold;}</style></head><body>';
+  doc += '<h1><span class="marca">ZANCANARO</span> — ' + titulo + '</h1>';
+  doc += '<h2>Curva ABC por ' + tituloDim + ' · Periodo: ' + fmtDate(ini) + ' a ' + fmtDate(fim) + '</h2>';
+  doc += '<div class="kpis">';
+  doc += '<div class="kpi"><span>' + (ehVendas ? 'Faturamento' : 'Total comprado') + '</span><b>' + fmtMoney(total) + '</b></div>';
+  doc += '<div class="kpi"><span>Registros</span><b>' + qtd + '</b></div>';
+  doc += '<div class="kpi"><span>Ticket medio</span><b>' + fmtMoney(ticket) + '</b></div>';
+  doc += '<div class="kpi"><span>Classe A</span><b style="color:#3E9B5C;">' + fmtMoney(valA) + ' (' + nA + ')</b></div>';
+  doc += '<div class="kpi"><span>Classe B</span><b style="color:#C99A00;">' + fmtMoney(valB) + ' (' + nB + ')</b></div>';
+  doc += '<div class="kpi"><span>Classe C</span><b style="color:#8A929A;">' + fmtMoney(valC) + ' (' + nC + ')</b></div>';
+  doc += '</div>';
+  doc += '<table><thead><tr><th>#</th><th>' + tituloDim + '</th><th style="text-align:right;">Valor</th><th style="text-align:center;">Qtd</th><th style="text-align:right;">%</th><th style="text-align:right;">% acum.</th><th style="text-align:center;">Classe</th></tr></thead>';
+  doc += '<tbody>' + corpo + '</tbody></table>';
+  doc += '<p style="margin-top:24px;font-size:11px;color:#8A929A;">Gerado em ' + new Date().toLocaleString('pt-BR') + '</p>';
+  doc += '</body></html>';
+
+  const w = window.open('', '_blank');
+  if (!w) { toast('Permita pop-ups para imprimir.', 'error'); return; }
+  w.document.write(doc);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { w.print(); }, 300);
+}
+
+views.reports = function () {
+  renderRelatorios();
+};
+
+/* ==================== GERADOR XLSX (JS puro, sem dependencias) ==================== */
+// Tabela CRC32
+var _crcTable = (function () {
+  var t = [];
+  for (var n = 0; n < 256; n++) {
+    var c = n;
+    for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function _crc32(bytes) {
+  var crc = 0xFFFFFFFF;
+  for (var i = 0; i < bytes.length; i++) crc = (crc >>> 8) ^ _crcTable[(crc ^ bytes[i]) & 0xFF];
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+function _strToBytes(str) {
+  // UTF-8
+  var out = [];
+  for (var i = 0; i < str.length; i++) {
+    var c = str.charCodeAt(i);
+    if (c < 0x80) out.push(c);
+    else if (c < 0x800) { out.push(0xC0 | (c >> 6), 0x80 | (c & 0x3F)); }
+    else if (c >= 0xD800 && c <= 0xDBFF) {
+      // surrogate pair
+      var c2 = str.charCodeAt(++i);
+      var cp = 0x10000 + ((c - 0xD800) << 10) + (c2 - 0xDC00);
+      out.push(0xF0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3F), 0x80 | ((cp >> 6) & 0x3F), 0x80 | (cp & 0x3F));
+    } else { out.push(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 0x3F), 0x80 | (c & 0x3F)); }
+  }
+  return out;
+}
+function _u16(n) { return [n & 0xFF, (n >> 8) & 0xFF]; }
+function _u32(n) { return [n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >> 24) & 0xFF]; }
+
+// Monta um ZIP store-mode a partir de [{name, bytes}] e retorna Uint8Array
+function _zip(files) {
+  var chunks = [];
+  var central = [];
+  var offset = 0;
+  files.forEach(function (f) {
+    var crc = _crc32(f.bytes);
+    var nameBytes = _strToBytes(f.name);
+    // local file header
+    var lh = [].concat(
+      _u32(0x04034b50), _u16(20), _u16(0), _u16(0), _u16(0), _u16(0),
+      _u32(crc), _u32(f.bytes.length), _u32(f.bytes.length),
+      _u16(nameBytes.length), _u16(0), nameBytes, f.bytes
+    );
+    chunks.push(lh);
+    // central directory entry
+    var cd = [].concat(
+      _u32(0x02014b50), _u16(20), _u16(20), _u16(0), _u16(0), _u16(0), _u16(0),
+      _u32(crc), _u32(f.bytes.length), _u32(f.bytes.length),
+      _u16(nameBytes.length), _u16(0), _u16(0), _u16(0), _u16(0), _u32(0),
+      _u32(offset), nameBytes
+    );
+    central.push(cd);
+    offset += lh.length;
+  });
+  var centralStart = offset;
+  var centralBytes = [];
+  central.forEach(function (c) { centralBytes = centralBytes.concat(c); });
+  var end = [].concat(
+    _u32(0x06054b50), _u16(0), _u16(0), _u16(files.length), _u16(files.length),
+    _u32(centralBytes.length), _u32(centralStart), _u16(0)
+  );
+  var all = [];
+  chunks.forEach(function (c) { all = all.concat(c); });
+  all = all.concat(centralBytes).concat(end);
+  return new Uint8Array(all);
+}
+
+function _xmlEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+// nome de aba valido: max 31 chars, sem : \ / ? * [ ]
+function _sheetName(nome, usados) {
+  var n = String(nome || 'Aba').replace(/[:\\\/\?\*\[\]]/g, ' ').trim().slice(0, 28);
+  if (!n) n = 'Aba';
+  var base = n, i = 2;
+  while (usados[n.toLowerCase()]) { n = (base.slice(0, 25) + ' (' + i + ')'); i++; }
+  usados[n.toLowerCase()] = true;
+  return n;
+}
+
+function _colLetra(idx) {
+  var s = '';
+  idx++;
+  while (idx > 0) { var m = (idx - 1) % 26; s = String.fromCharCode(65 + m) + s; idx = Math.floor((idx - 1) / 26); }
+  return s;
+}
+
+// Monta uma planilha a partir de linhas (array de arrays). Cada celula: numero -> numerica; string -> texto
+function _sheetXml(linhas) {
+  var rows = '';
+  for (var r = 0; r < linhas.length; r++) {
+    var cells = '';
+    for (var c = 0; c < linhas[r].length; c++) {
+      var v = linhas[r][c];
+      var ref = _colLetra(c) + (r + 1);
+      if (typeof v === 'number' && isFinite(v)) {
+        cells += '<c r="' + ref + '"><v>' + v + '</v></c>';
+      } else {
+        cells += '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">' + _xmlEsc(v) + '</t></is></c>';
+      }
+    }
+    rows += '<row r="' + (r + 1) + '">' + cells + '</row>';
+  }
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'
+    + rows + '</sheetData></worksheet>';
+}
+
+// abas = [{nome, linhas}] -> Uint8Array do xlsx
+function gerarXLSX(abas) {
+  var files = [];
+  // [Content_Types].xml
+  var ov = '';
+  for (var i = 0; i < abas.length; i++) {
+    ov += '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+  }
+  files.push({ name: '[Content_Types].xml', bytes: _strToBytes(
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    + '<Default Extension="xml" ContentType="application/xml"/>'
+    + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+    + ov + '</Types>') });
+  // _rels/.rels
+  files.push({ name: '_rels/.rels', bytes: _strToBytes(
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+    + '</Relationships>') });
+  // xl/workbook.xml
+  var sheetsXml = '';
+  var relsXml = '';
+  for (var j = 0; j < abas.length; j++) {
+    sheetsXml += '<sheet name="' + _xmlEsc(abas[j].nome) + '" sheetId="' + (j + 1) + '" r:id="rId' + (j + 1) + '"/>';
+    relsXml += '<Relationship Id="rId' + (j + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (j + 1) + '.xml"/>';
+  }
+  files.push({ name: 'xl/workbook.xml', bytes: _strToBytes(
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '<sheets>' + sheetsXml + '</sheets></workbook>') });
+  // xl/_rels/workbook.xml.rels
+  files.push({ name: 'xl/_rels/workbook.xml.rels', bytes: _strToBytes(
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + relsXml + '</Relationships>') });
+  // sheets
+  for (var k = 0; k < abas.length; k++) {
+    files.push({ name: 'xl/worksheets/sheet' + (k + 1) + '.xml', bytes: _strToBytes(_sheetXml(abas[k].linhas)) });
+  }
+  return _zip(files);
+}
+
+/* ==================== INICIALIZAÇÃO ==================== */
+renderViewOriginal = renderView;
+function renderViewComGuarda(view) {
+  if (!temPermissao(view)) { toast('Você não tem acesso a este módulo.', 'error'); return; }
+  renderViewOriginal(view);
+}
+renderView = renderViewComGuarda;
+
+document.getElementById('btn-logout').addEventListener('click', () => {
+  sessionStorage.removeItem('frota_sessao');
+  document.getElementById('app-shell').classList.add('hidden');
+  document.getElementById('mobile-bar').classList.add('hidden');
+  document.getElementById('auth-screen').classList.remove('hidden');
+  telaLogin();
+});
+
+if (Store.list('users').length === 0) {
+  telaPrimeiroAcesso();
+} else if (sessaoAtual()) {
+  mostrarApp();
+} else {
+  telaLogin();
+}
+</script>
+</body>
+</html>
