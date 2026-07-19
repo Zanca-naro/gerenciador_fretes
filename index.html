@@ -115,6 +115,7 @@ tbody tr:hover { background: #FBFCFC; }
 }
 button:focus-visible, .nav-item:focus-visible { outline: 2px solid var(--faixa); outline-offset: 2px; }
 .hidden { display: none !important; }
+.loading-cloud { position: fixed; inset: 0; background: var(--asfalto); display: flex; align-items: center; justify-content: center; z-index: 999; color: var(--texto-claro); font-family: var(--font-body); font-size: 14px; }
 .auth-screen { position: fixed; inset: 0; background: var(--asfalto); display: flex; align-items: center; justify-content: center; z-index: 500; padding: 20px; }
 .auth-card { background: white; border-radius: 14px; width: 100%; max-width: 400px; padding: 34px 32px 28px 32px; }
 .auth-brand { text-align: center; margin-bottom: 24px; }
@@ -143,10 +144,13 @@ button:focus-visible, .nav-item:focus-visible { outline: 2px solid var(--faixa);
 .kpi-card-accent { position:relative; overflow:hidden; }
 .tbl-clean tbody tr:last-child td { border-bottom:none; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-<div class="auth-screen" id="auth-screen">
+<div class="loading-cloud" id="loading-cloud">Carregando dados da nuvem…</div>
+
+<div class="auth-screen hidden" id="auth-screen">
   <div class="auth-card">
     <div class="auth-brand">
       <div class="brand-title">ZANCANARO</div>
@@ -185,55 +189,81 @@ button:focus-visible, .nav-item:focus-visible { outline: 2px solid var(--faixa);
     <div class="sidebar-footer">
       <div class="user-badge" id="user-badge"></div>
       <button class="btn btn-ghost btn-sm" id="btn-logout" style="color:var(--texto-suave);border-color:var(--linha);width:100%;">Sair</button>
-      <div style="margin-top:10px;" id="frota-resumo">Dados salvos neste navegador</div>
+      <div style="margin-top:10px;" id="frota-resumo">Dados sincronizados na nuvem</div>
     </div>
   </aside>
   <main class="main" id="main"></main>
 </div>
 
 <script>
-/* ==================== CAMADA DE DADOS (localStorage) ==================== */
-const PREFIX = 'frota_';
+/* ==================== CAMADA DE DADOS (Supabase — banco compartilhado na nuvem) ==================== */
+const SUPABASE_URL = 'https://neegewpzmqkqpbjwajdp.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_UahI2yxXXM5z2hySzDZGIQ_rhLzY9Fb';
+const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-function dbGet(table) {
-  const raw = localStorage.getItem(PREFIX + table);
-  return raw ? JSON.parse(raw) : [];
+// Cache local em memória, espelhando o que antes ficava no localStorage.
+// Toda leitura (list/get) usa esse cache, que é populado a partir do Supabase
+// no carregamento da página e mantido atualizado a cada escrita.
+let _cache = {};
+
+async function carregarTudoDoSupabase() {
+  const { data, error } = await sbClient.from('records').select('*');
+  if (error) {
+    console.error('Erro ao carregar dados do Supabase:', error);
+    alert('Não foi possível conectar ao banco de dados na nuvem. Verifique sua internet e tente novamente.');
+    return false;
+  }
+  _cache = {};
+  data.forEach(row => {
+    if (!_cache[row.table_name]) _cache[row.table_name] = [];
+    _cache[row.table_name].push({ ...row.data, id: row.id });
+  });
+  return true;
 }
-function dbSet(table, items) {
-  localStorage.setItem(PREFIX + table, JSON.stringify(items));
+
+function _proximoId(table) {
+  const items = _cache[table] || [];
+  return items.reduce((max, x) => Math.max(max, x.id), 0) + 1;
 }
-function nextId(table) {
-  const key = PREFIX + 'seq_' + table;
-  const n = parseInt(localStorage.getItem(key) || '0', 10) + 1;
-  localStorage.setItem(key, String(n));
-  return n;
+
+function _avisarErroSync(msg) {
+  // usa a função toast() que já existe mais abaixo no arquivo
+  if (typeof toast === 'function') toast(msg, 'error');
+  else alert(msg);
 }
 
 const Store = {
-  list(table) { return dbGet(table); },
-  get(table, id) { return dbGet(table).find(x => x.id === Number(id)); },
+  list(table) { return _cache[table] ? [..._cache[table]] : []; },
+  get(table, id) { return (_cache[table] || []).find(x => x.id === Number(id)); },
   insert(table, obj) {
-    const items = dbGet(table);
-    obj.id = nextId(table);
-    items.push(obj);
-    dbSet(table, items);
+    if (!_cache[table]) _cache[table] = [];
+    obj.id = _proximoId(table);
+    _cache[table].push(obj);
+    const { id, ...dadosSemId } = obj;
+    sbClient.from('records').insert({ table_name: table, id: obj.id, data: dadosSemId })
+      .then(({ error }) => { if (error) { console.error(error); _avisarErroSync('Falha ao salvar na nuvem — verifique sua internet.'); } });
     return obj;
   },
   update(table, id, patch) {
-    const items = dbGet(table);
+    const items = _cache[table] || [];
     const idx = items.findIndex(x => x.id === Number(id));
     if (idx === -1) return null;
     items[idx] = { ...items[idx], ...patch };
-    dbSet(table, items);
+    const { id: _id, ...dadosSemId } = items[idx];
+    sbClient.from('records').update({ data: dadosSemId, updated_at: new Date().toISOString() })
+      .eq('table_name', table).eq('id', Number(id))
+      .then(({ error }) => { if (error) { console.error(error); _avisarErroSync('Falha ao atualizar na nuvem — verifique sua internet.'); } });
     return items[idx];
   },
   remove(table, id) {
-    dbSet(table, dbGet(table).filter(x => x.id !== Number(id)));
+    _cache[table] = (_cache[table] || []).filter(x => x.id !== Number(id));
+    sbClient.from('records').delete().eq('table_name', table).eq('id', Number(id))
+      .then(({ error }) => { if (error) { console.error(error); _avisarErroSync('Falha ao excluir na nuvem — verifique sua internet.'); } });
   }
 };
 
-/* Seed inicial — só roda uma vez */
-if (!localStorage.getItem(PREFIX + 'seeded')) {
+async function _seedInicialSeNecessario() {
+  if ((_cache['vehicles'] || []).length > 0) return;
   for (let i = 1; i <= 5; i++) {
     Store.insert('vehicles', {
       placa: `AAA-100${i}`,
@@ -245,7 +275,6 @@ if (!localStorage.getItem(PREFIX + 'seeded')) {
       observacoes: ''
     });
   }
-  localStorage.setItem(PREFIX + 'seeded', '1');
 }
 
 /* ==================== HELPERS ==================== */
@@ -448,7 +477,7 @@ function atualizarResumoFrota() {
       : caps.reduce((a, b) => a + b, 0).toLocaleString('pt-BR') + ' kg no total';
     txt = 'Frota: ' + n + ' veículo' + (n > 1 ? 's' : '') + ' · ' + capTxt;
   }
-  el.innerHTML = txt + '<br>Dados salvos neste navegador';
+  el.innerHTML = txt + '<br>Dados sincronizados na nuvem';
 }
 
 const views = {};
@@ -2051,11 +2080,14 @@ function renderAnaliseFinanceira() {
 
 /* Config de capital de giro (saldo inicial em caixa) */
 function getSaldoInicial() {
-  const v = parseFloat(localStorage.getItem('frota_saldo_inicial'));
+  const cfg = Store.get('config', 1);
+  const v = cfg ? parseFloat(cfg.saldo_inicial) : NaN;
   return isNaN(v) ? 0 : v;
 }
 function setSaldoInicial(v) {
-  localStorage.setItem('frota_saldo_inicial', String(Number(v) || 0));
+  const cfg = Store.get('config', 1);
+  if (cfg) Store.update('config', 1, { saldo_inicial: Number(v) || 0 });
+  else Store.insert('config', { saldo_inicial: Number(v) || 0 });
 }
 let fluxoModo = 'mensal'; // 'mensal' ou 'diario'
 
@@ -3454,13 +3486,22 @@ document.getElementById('btn-logout').addEventListener('click', () => {
   telaLogin();
 });
 
-if (Store.list('users').length === 0) {
-  telaPrimeiroAcesso();
-} else if (sessaoAtual()) {
-  mostrarApp();
-} else {
-  telaLogin();
-}
+(async function iniciar() {
+  const ok = await carregarTudoDoSupabase();
+  if (!ok) return; // mensagem de erro já foi mostrada; mantém a tela de carregamento
+  await _seedInicialSeNecessario();
+
+  document.getElementById('loading-cloud').classList.add('hidden');
+  document.getElementById('auth-screen').classList.remove('hidden');
+
+  if (Store.list('users').length === 0) {
+    telaPrimeiroAcesso();
+  } else if (sessaoAtual()) {
+    mostrarApp();
+  } else {
+    telaLogin();
+  }
+})();
 </script>
 </body>
 </html>
