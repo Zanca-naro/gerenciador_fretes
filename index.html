@@ -130,6 +130,18 @@ button:focus-visible, .nav-item:focus-visible { outline: 2px solid var(--faixa);
 .tab-chip { padding: 8px 16px; border-radius: 20px; border: 1px solid #D7DBDE; background: white; font-size: 13.5px; font-weight: 600; color: #4A5259; cursor: pointer; }
 .tab-chip:hover { background: #F2F3F4; }
 .tab-chip.active { background: var(--asfalto); color: white; border-color: var(--asfalto); }
+
+/* Refinamentos dos relatórios */
+.abc-badge { display:inline-block; min-width:26px; text-align:center; padding:3px 9px; border-radius:20px; font-weight:700; font-size:12px; }
+.abc-a { background: rgba(62,155,92,0.14); color:#2E7D46; }
+.abc-b { background: rgba(242,183,5,0.18); color:#B98900; }
+.abc-c { background: rgba(138,146,154,0.16); color:#5A6169; }
+.rel-row-clic { cursor:pointer; transition: background 0.12s ease; }
+.rel-row-clic:hover { background:#FBF6E6 !important; }
+.rel-bar-track { flex:1; background:#EEF0F1; border-radius:5px; height:9px; min-width:70px; overflow:hidden; }
+.rel-bar-fill { height:100%; border-radius:5px; transition: width 0.3s ease; }
+.kpi-card-accent { position:relative; overflow:hidden; }
+.tbl-clean tbody tr:last-child td { border-bottom:none; }
 </style>
 </head>
 <body>
@@ -173,7 +185,7 @@ button:focus-visible, .nav-item:focus-visible { outline: 2px solid var(--faixa);
     <div class="sidebar-footer">
       <div class="user-badge" id="user-badge"></div>
       <button class="btn btn-ghost btn-sm" id="btn-logout" style="color:var(--texto-suave);border-color:var(--linha);width:100%;">Sair</button>
-      <div style="margin-top:10px;">Frota: 5 veículos · 3.500 kg cada<br>Dados salvos neste navegador</div>
+      <div style="margin-top:10px;" id="frota-resumo">Dados salvos neste navegador</div>
     </div>
   </aside>
   <main class="main" id="main"></main>
@@ -250,6 +262,117 @@ function fmtMoney(v) {
   return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 function todayISO() { return new Date().toISOString().slice(0, 10); }
+
+/* ==================== MÁSCARAS E FORMATAÇÃO DE CAMPOS ==================== */
+function soDigitos(s) { return (s || '').replace(/\D/g, ''); }
+
+function mascaraCpfCnpj(valor) {
+  const d = soDigitos(valor).slice(0, 14);
+  if (d.length <= 11) {
+    // CPF: 000.000.000-00
+    return d.replace(/^(\d{3})(\d)/, '$1.$2')
+            .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+            .replace(/\.(\d{3})(\d)/, '.$1-$2');
+  }
+  // CNPJ: 00.000.000/0000-00
+  return d.replace(/^(\d{2})(\d)/, '$1.$2')
+          .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+          .replace(/\.(\d{3})(\d)/, '.$1/$2')
+          .replace(/(\d{4})(\d)/, '$1-$2');
+}
+function mascaraTelefone(valor) {
+  const d = soDigitos(valor).slice(0, 11);
+  if (d.length <= 10) {
+    // (00) 0000-0000
+    return d.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2');
+  }
+  // (00) 00000-0000
+  return d.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
+}
+function mascaraCep(valor) {
+  return soDigitos(valor).slice(0, 8).replace(/^(\d{5})(\d)/, '$1-$2');
+}
+function mascaraPlaca(valor) {
+  // remove tudo que não é letra/número, força maiúsculas, limita a 7 caracteres
+  let v = (valor || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7);
+  // Mercosul: 4ª posição é letra (AAA0A00) -> mantém junto ABC1D23
+  // Antigo: 4ª posição é número (AAA0000) -> insere hífen ABC-1234
+  if (v.length >= 5 && /^[A-Z]{3}[0-9]{4}$/.test(v)) {
+    return v.replace(/^([A-Z]{3})([0-9]{4})$/, '$1-$2');
+  }
+  return v;
+}
+function emailValido(valor) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);
+}
+function cpfValido(cpf) {
+  cpf = soDigitos(cpf);
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  let s = 0;
+  for (let i = 0; i < 9; i++) s += parseInt(cpf[i]) * (10 - i);
+  let r = (s * 10) % 11; if (r === 10) r = 0;
+  if (r !== parseInt(cpf[9])) return false;
+  s = 0;
+  for (let i = 0; i < 10; i++) s += parseInt(cpf[i]) * (11 - i);
+  r = (s * 10) % 11; if (r === 10) r = 0;
+  return r === parseInt(cpf[10]);
+}
+function cnpjValido(cnpj) {
+  cnpj = soDigitos(cnpj);
+  if (cnpj.length !== 14 || /^(\d)\1{13}$/.test(cnpj)) return false;
+  const calc = (base) => {
+    let tam = base.length, pos = tam - 7, soma = 0;
+    for (let i = tam; i >= 1; i--) { soma += base[tam - i] * pos--; if (pos < 2) pos = 9; }
+    const r = soma % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  const nums = cnpj.split('').map(Number);
+  const d1 = calc(nums.slice(0, 12));
+  if (d1 !== nums[12]) return false;
+  const d2 = calc(nums.slice(0, 13));
+  return d2 === nums[13];
+}
+function documentoValido(valor) {
+  const d = soDigitos(valor);
+  if (!d) return true; // vazio é permitido (campo opcional)
+  if (d.length <= 11) return cpfValido(d);
+  return cnpjValido(d);
+}
+
+// Delegação global: aplica máscara enquanto digita, conforme o data-mask do input
+document.addEventListener('input', (e) => {
+  const el = e.target;
+  if (!el || !el.dataset || !el.dataset.mask) return;
+  const pos = el.selectionEnd, antes = el.value.length;
+  if (el.dataset.mask === 'cpfcnpj') el.value = mascaraCpfCnpj(el.value);
+  else if (el.dataset.mask === 'telefone') el.value = mascaraTelefone(el.value);
+  else if (el.dataset.mask === 'cep') el.value = mascaraCep(el.value);
+  else if (el.dataset.mask === 'placa') el.value = mascaraPlaca(el.value);
+  // reposiciona cursor aproximando pela diferença de tamanho
+  const dif = el.value.length - antes;
+  try { el.setSelectionRange(pos + dif, pos + dif); } catch (x) {}
+});
+// Validação visual ao sair do campo (email e documento)
+document.addEventListener('blur', (e) => {
+  const el = e.target;
+  if (!el || !el.dataset) return;
+  let invalido = false;
+  if (el.dataset.valida === 'email' && el.value.trim()) invalido = !emailValido(el.value.trim());
+  if (el.dataset.valida === 'documento' && el.value.trim()) invalido = !documentoValido(el.value);
+  el.style.borderColor = invalido ? 'var(--vermelho-alerta)' : '';
+  let dica = el.parentNode ? el.parentNode.querySelector('.campo-erro') : null;
+  if (invalido) {
+    if (!dica) {
+      dica = document.createElement('div');
+      dica.className = 'campo-erro';
+      dica.style.cssText = 'color:var(--vermelho-alerta);font-size:11px;margin-top:3px;';
+      el.parentNode.appendChild(dica);
+    }
+    dica.textContent = el.dataset.valida === 'email' ? 'E-mail inválido' : 'CPF/CNPJ inválido';
+  } else if (dica) {
+    dica.remove();
+  }
+}, true);
 function diasAte(dataStr) {
   if (!dataStr) return null;
   const hoje = new Date(); hoje.setHours(0,0,0,0);
@@ -290,6 +413,14 @@ function openModal(title, bodyHtml, onSubmit) {
     const fd = new FormData(e.target);
     onSubmit(Object.fromEntries(fd.entries()));
   });
+  // formata valores já preenchidos conforme a máscara do campo
+  overlay.querySelectorAll('[data-mask]').forEach(el => {
+    if (!el.value) return;
+    if (el.dataset.mask === 'cpfcnpj') el.value = mascaraCpfCnpj(el.value);
+    else if (el.dataset.mask === 'telefone') el.value = mascaraTelefone(el.value);
+    else if (el.dataset.mask === 'cep') el.value = mascaraCep(el.value);
+    else if (el.dataset.mask === 'placa') el.value = mascaraPlaca(el.value);
+  });
   return overlay;
 }
 function optionsHtml(items, valueKey, labelFn, selected) {
@@ -299,6 +430,25 @@ function optionsHtml(items, valueKey, labelFn, selected) {
 function loadBaseData() {
   state.vehicles = Store.list('vehicles');
   state.drivers = Store.list('drivers');
+  atualizarResumoFrota();
+}
+function atualizarResumoFrota() {
+  const el = document.getElementById('frota-resumo');
+  if (!el) return;
+  const veic = Store.list('vehicles');
+  const n = veic.length;
+  let txt;
+  if (!n) {
+    txt = 'Nenhum veículo cadastrado';
+  } else {
+    const caps = veic.map(v => Number(v.capacidade_kg) || 0);
+    const iguais = caps.every(c => c === caps[0]);
+    const capTxt = iguais
+      ? caps[0].toLocaleString('pt-BR') + ' kg cada'
+      : caps.reduce((a, b) => a + b, 0).toLocaleString('pt-BR') + ' kg no total';
+    txt = 'Frota: ' + n + ' veículo' + (n > 1 ? 's' : '') + ' · ' + capTxt;
+  }
+  el.innerHTML = txt + '<br>Dados salvos neste navegador';
 }
 
 const views = {};
@@ -416,7 +566,7 @@ views.dashboard = function () {
 /* ==================== VEÍCULOS ==================== */
 function vehicleFormFields(v = {}) {
   return `
-    <div class="form-field"><label>Placa</label><input name="placa" value="${v.placa || ''}" required placeholder="AAA-0000"></div>
+    <div class="form-field"><label>Placa</label><input name="placa" value="${v.placa || ''}" data-mask="placa" required placeholder="ABC-1234 ou ABC1D23" style="text-transform:uppercase;"></div>
     <div class="form-field"><label>Modelo</label><input name="modelo" value="${v.modelo || ''}" required placeholder="Ex: VW Delivery"></div>
     <div class="form-field"><label>Ano</label><input name="ano" type="number" value="${v.ano || ''}"></div>
     <div class="form-field"><label>Capacidade (kg)</label><input name="capacidade_kg" type="number" value="${v.capacidade_kg ?? 3500}" required></div>
@@ -482,7 +632,7 @@ function driverFormFields(d = {}) {
     <div class="form-field"><label>Nº CNH</label><input name="cnh_numero" value="${d.cnh_numero || ''}"></div>
     <div class="form-field"><label>Categoria CNH</label><input name="cnh_categoria" value="${d.cnh_categoria || ''}" placeholder="Ex: D"></div>
     <div class="form-field"><label>Validade CNH</label><input name="cnh_validade" type="date" value="${d.cnh_validade || ''}"></div>
-    <div class="form-field"><label>Telefone</label><input name="telefone" value="${d.telefone || ''}"></div>
+    <div class="form-field"><label>Telefone</label><input name="telefone" data-mask="telefone" inputmode="numeric" value="${d.telefone || ''}"></div>
     <div class="form-field"><label>Status</label>
       <select name="status">
         <option value="ativo" ${d.status === 'ativo' ? 'selected' : ''}>Ativo</option>
@@ -1807,7 +1957,7 @@ function renderAnaliseFinanceira() {
   if (mesesOrd.length) {
     barsChart = '<svg viewBox="0 0 ' + chartW + ' ' + (chartH + 50) + '" style="width:100%;max-width:' + chartW + 'px;height:auto;">' + eixo + barsSvg + '</svg>';
   } else {
-    barsChart = '<div class="empty-state">Sem movimentos no periodo.</div>';
+    barsChart = '<div class="empty-state">Sem movimentos no período.</div>';
   }
 
   let maxCat = 1;
@@ -1820,7 +1970,7 @@ function renderAnaliseFinanceira() {
     const w = Math.round(val / maxCat * 100);
     catRows += '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;"><span>' + cat + '</span><strong>' + fmtMoney(val) + ' <span style="color:#8A929A;font-weight:400;">(' + pct + '%)</span></strong></div><div style="background:#EEF0F1;border-radius:4px;height:10px;overflow:hidden;"><div style="width:' + w + '%;height:100%;background:#C1432E;"></div></div></div>';
   });
-  if (!catRows) catRows = '<div class="empty-state">Sem despesas pagas no periodo.</div>';
+  if (!catRows) catRows = '<div class="empty-state">Sem despesas pagas no período.</div>';
 
   let maxCatEnt = 1;
   catsEntOrd.forEach(c => { maxCatEnt = Math.max(maxCatEnt, c[1]); });
@@ -1832,14 +1982,14 @@ function renderAnaliseFinanceira() {
     const w = Math.round(val / maxCatEnt * 100);
     catEntRows += '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;"><span>' + cat + '</span><strong>' + fmtMoney(val) + ' <span style="color:#8A929A;font-weight:400;">(' + pct + '%)</span></strong></div><div style="background:#EEF0F1;border-radius:4px;height:10px;overflow:hidden;"><div style="width:' + w + '%;height:100%;background:#3E9B5C;"></div></div></div>';
   });
-  if (!catEntRows) catEntRows = '<div class="empty-state">Sem recebimentos no periodo.</div>';
+  if (!catEntRows) catEntRows = '<div class="empty-state">Sem recebimentos no período.</div>';
 
   const margem = totalEnt > 0 ? Math.round(saldo / totalEnt * 100) : 0;
   const corSaldo = saldo >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)';
   const rotuloSaldo = saldo >= 0 ? 'superavit' : 'deficit';
 
   let html = '';
-  html += '<div class="page-header"><div><h1 class="page-title">Financeiro</h1><div class="page-sub">Analise do que foi pago e recebido no periodo</div></div></div>';
+  html += '<div class="page-header"><div><h1 class="page-title">Financeiro</h1><div class="page-sub">Análise do que foi pago e recebido no período</div></div></div>';
   html += '<div class="tab-bar">';
   html += '<button class="tab-chip" data-fintab="lancamentos">📒 Lançamentos</button>';
   html += '<button class="tab-chip" data-fintab="fluxo">💰 Fluxo de Caixa</button>';
@@ -1851,8 +2001,8 @@ function renderAnaliseFinanceira() {
   html += '<button class="btn btn-primary btn-sm" id="an-aplicar" style="height:37px;">Aplicar</button>';
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">';
   html += '<button class="tab-chip" data-atalho="mes">Este mes</button>';
-  html += '<button class="tab-chip" data-atalho="3m">Ultimos 3 meses</button>';
-  html += '<button class="tab-chip" data-atalho="6m">Ultimos 6 meses</button>';
+  html += '<button class="tab-chip" data-atalho="3m">Últimos 3 meses</button>';
+  html += '<button class="tab-chip" data-atalho="6m">Últimos 6 meses</button>';
   html += '<button class="tab-chip" data-atalho="ano">Este ano</button>';
   html += '</div></div></div>';
   html += '<div class="grid grid-4" style="margin-bottom:16px;">';
@@ -1861,7 +2011,7 @@ function renderAnaliseFinanceira() {
   html += '<div class="card"><p class="card-title">Resultado</p><div class="kpi-value" style="font-size:26px;color:' + corSaldo + ';">' + fmtMoney(saldo) + '</div><div class="kpi-label">' + rotuloSaldo + ' no periodo</div></div>';
   html += '<div class="card"><p class="card-title">Margem</p><div class="kpi-value" style="font-size:26px;">' + margem + '%</div><div class="kpi-label">resultado / recebido</div></div>';
   html += '</div>';
-  html += '<div class="card" style="margin-bottom:16px;"><p class="card-title">Recebido x Pago por mes <span style="font-weight:400;text-transform:none;margin-left:8px;"><span style="color:var(--verde-ok);">[ ]</span> recebido <span style="color:var(--vermelho-alerta);">[ ]</span> pago</span></p>' + barsChart + '</div>';
+  html += '<div class="card" style="margin-bottom:16px;"><p class="card-title">Recebido × Pago por mês <span style="font-weight:400;text-transform:none;margin-left:8px;"><span style="color:var(--verde-ok);">[ ]</span> recebido <span style="color:var(--vermelho-alerta);">[ ]</span> pago</span></p>' + barsChart + '</div>';
   html += '<div class="grid grid-2">';
   html += '<div class="card"><p class="card-title">Despesas por categoria</p>' + catRows + '</div>';
   html += '<div class="card"><p class="card-title">Receitas por categoria</p>' + catEntRows + '</div>';
@@ -1881,7 +2031,7 @@ function renderAnaliseFinanceira() {
       analisePeriodo.fim = f;
       renderAnaliseFinanceira();
     } else {
-      toast('Verifique as datas do periodo.', 'error');
+      toast('Verifique as datas do período.', 'error');
     }
   });
   main.querySelectorAll('[data-atalho]').forEach(btn => btn.addEventListener('click', () => {
@@ -1898,6 +2048,16 @@ function renderAnaliseFinanceira() {
   }));
 }
 
+
+/* Config de capital de giro (saldo inicial em caixa) */
+function getSaldoInicial() {
+  const v = parseFloat(localStorage.getItem('frota_saldo_inicial'));
+  return isNaN(v) ? 0 : v;
+}
+function setSaldoInicial(v) {
+  localStorage.setItem('frota_saldo_inicial', String(Number(v) || 0));
+}
+let fluxoModo = 'mensal'; // 'mensal' ou 'diario'
 
 function renderFluxoCaixa() {
   const vendas = Store.list('sales');
@@ -1946,18 +2106,28 @@ function renderFluxoCaixa() {
   const totalPagar = pagaveis.reduce((s, l) => s + Number(l.valor), 0);
 
   // Projeção: mês atual + 5 seguintes (+ linha de atrasados)
+  const saldoInicial = getSaldoInicial();
   const [cy, cm] = mesAtual.split('-').map(Number);
   const meses = [];
   for (let i = 0; i < 6; i++) {
     const dt = new Date(cy, cm - 1 + i, 1);
     meses.push(`${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`);
   }
-  let acumulado = 0;
+  let acumulado = saldoInicial;
+  let menorSaldo = saldoInicial; // pior momento do caixa (para alerta de ruptura)
+  let dataMenorSaldo = 'hoje';
   const entradasAtraso = vencidos.reduce((s, r) => s + r.valor, 0);
   const saidasAtraso = pagaveis.filter(l => l.dias !== null && l.dias < 0).reduce((s, l) => s + Number(l.valor), 0);
   const projRows = [];
+  // linha do saldo inicial
+  projRows.push(`<tr style="background:#F7F8F9;">
+    <td><strong>Saldo hoje</strong></td>
+    <td>—</td><td>—</td><td>—</td>
+    <td style="font-weight:600;color:${saldoInicial >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${fmtMoney(saldoInicial)}</td>
+  </tr>`);
   if (entradasAtraso > 0 || saidasAtraso > 0) {
     acumulado += entradasAtraso - saidasAtraso;
+    if (acumulado < menorSaldo) { menorSaldo = acumulado; dataMenorSaldo = 'itens em atraso'; }
     projRows.push(`<tr>
       <td><strong style="color:var(--vermelho-alerta);">Em atraso</strong></td>
       <td style="color:var(--verde-ok);">${fmtMoney(entradasAtraso)}</td>
@@ -1971,6 +2141,7 @@ function renderFluxoCaixa() {
     const saidas = pagaveis.filter(l => l.data && l.data.slice(0, 7) === m2 && l.dias >= 0).reduce((s, l) => s + Number(l.valor), 0);
     const saldoMes = entradas - saidas;
     acumulado += saldoMes;
+    if (acumulado < menorSaldo) { menorSaldo = acumulado; dataMenorSaldo = mesLabel(m2); }
     projRows.push(`<tr>
       <td style="text-transform:capitalize;">${mesLabel(m2)}</td>
       <td style="color:var(--verde-ok);">${entradas ? fmtMoney(entradas) : '—'}</td>
@@ -1979,6 +2150,58 @@ function renderFluxoCaixa() {
       <td style="font-weight:600;color:${acumulado >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${fmtMoney(acumulado)}</td>
     </tr>`);
   });
+  const saudeFinal = saldoInicial + totalReceber - totalPagar; // caixa após TODAS as movimentações previstas (sem limite de meses)
+
+  // se houver movimentos além do horizonte de 6 meses, mostra uma linha de fechamento
+  const limiteHorizonte = meses[meses.length - 1];
+  const recFora = recebiveis.filter(r => r.data && r.data.slice(0, 7) > limiteHorizonte && r.dias >= 0).reduce((s, r) => s + r.valor, 0);
+  const pagFora = pagaveis.filter(l => l.data && l.data.slice(0, 7) > limiteHorizonte && l.dias >= 0).reduce((s, l) => s + Number(l.valor), 0);
+  if (recFora > 0 || pagFora > 0) {
+    acumulado += (recFora - pagFora);
+    projRows.push(`<tr style="background:#F7F8F9;">
+      <td><strong>Após 6 meses</strong></td>
+      <td style="color:var(--verde-ok);">${recFora ? fmtMoney(recFora) : '—'}</td>
+      <td style="color:var(--vermelho-alerta);">${pagFora ? fmtMoney(pagFora) : '—'}</td>
+      <td style="font-weight:600;">${fmtMoney(recFora - pagFora)}</td>
+      <td style="font-weight:700;color:${acumulado >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${fmtMoney(acumulado)}</td>
+    </tr>`);
+  }
+
+  // ----- Projeção DIÁRIA (para evitar ruptura no meio do mês) -----
+  // junta todos os movimentos futuros (a partir de hoje) por dia, incluindo atrasados no primeiro dia
+  const movDiarios = {};
+  const addMov = (data, valor) => {
+    let d = data;
+    if (!d || d < hoje) d = hoje; // atrasados e sem data caem em hoje
+    movDiarios[d] = (movDiarios[d] || 0) + valor;
+  };
+  recebiveis.forEach(r => addMov(r.data, r.valor));
+  pagaveis.forEach(l => addMov(l.data, -Number(l.valor)));
+  const diasOrdenados = Object.keys(movDiarios).sort();
+  let acumDia = saldoInicial;
+  let menorDia = saldoInicial, dataMenorDia = 'hoje';
+  const diaRows = [];
+  diaRows.push(`<tr style="background:#F7F8F9;">
+    <td><strong>Saldo hoje</strong></td><td>—</td><td>—</td><td>—</td>
+    <td style="font-weight:600;color:${saldoInicial >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${fmtMoney(saldoInicial)}</td>
+  </tr>`);
+  diasOrdenados.forEach(d => {
+    const ents = recebiveis.filter(r => (r.data && r.data >= hoje ? r.data : hoje) === d).reduce((s, r) => s + r.valor, 0);
+    const sais = pagaveis.filter(l => (l.data && l.data >= hoje ? l.data : hoje) === d).reduce((s, l) => s + Number(l.valor), 0);
+    acumDia += (ents - sais);
+    if (acumDia < menorDia) { menorDia = acumDia; dataMenorDia = fmtDate(d); }
+    const neg = acumDia < 0;
+    diaRows.push(`<tr${neg ? ' style="background:#FBEAEA;"' : ''}>
+      <td>${fmtDate(d)}${d === hoje ? ' <span style="font-size:10px;color:#8A929A;">(hoje/atraso)</span>' : ''}</td>
+      <td style="color:var(--verde-ok);">${ents ? fmtMoney(ents) : '—'}</td>
+      <td style="color:var(--vermelho-alerta);">${sais ? fmtMoney(sais) : '—'}</td>
+      <td style="font-weight:600;">${fmtMoney(ents - sais)}</td>
+      <td style="font-weight:700;color:${acumDia >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${fmtMoney(acumDia)}${neg ? ' ⚠' : ''}</td>
+    </tr>`);
+  });
+  if (diasOrdenados.length === 0) {
+    diaRows.push(`<tr><td colspan="5" class="empty-state">Sem movimentos futuros previstos.</td></tr>`);
+  }
 
   const recTag = (dias) => {
     if (dias === null) return '';
@@ -1998,8 +2221,8 @@ function renderFluxoCaixa() {
         <td style="font-weight:600;">${fmtMoney(r.valor)}</td>
         <td>${recTag(r.dias)}</td>
         <td>${r.origem === 'venda'
-          ? `<button class="btn btn-primary btn-sm" data-receber-venda="${r.saleId}" data-parcela="${r.num}">✓ Receber</button>`
-          : `<button class="btn btn-primary btn-sm" data-receber-fin="${r.finId}">✓ Receber</button>`}</td>
+          ? `<button class="btn btn-primary btn-sm" data-receber-venda="${r.saleId}" data-parcela="${r.num}" data-valor="${r.valor}">✓ Receber</button>`
+          : `<button class="btn btn-primary btn-sm" data-receber-fin="${r.finId}" data-valor="${r.valor}">✓ Receber</button>`}</td>
       </tr>`).join('')
     : `<tr><td colspan="7" class="empty-state">Nenhum recebível pendente. 🎉</td></tr>`;
 
@@ -2010,7 +2233,7 @@ function renderFluxoCaixa() {
         <td>${l.descricao}<br><span style="font-size:11px;color:#8A929A;">${l.categoria || ''}</span></td>
         <td style="font-weight:600;color:var(--vermelho-alerta);">${fmtMoney(l.valor)}</td>
         <td>${recTag(l.dias)}</td>
-        <td><button class="btn btn-ghost btn-sm" data-pagar-src="${l.src}" data-pagar-id="${l.srcId}">✓ Pagar</button></td>
+        <td><button class="btn btn-ghost btn-sm" data-pagar-src="${l.src}" data-pagar-id="${l.srcId}" data-valor="${l.valor}">✓ Pagar</button></td>
       </tr>`).join('')
     : `<tr><td colspan="5" class="empty-state">Nenhuma conta a pagar pendente.</td></tr>`;
 
@@ -2026,21 +2249,29 @@ function renderFluxoCaixa() {
     </div>
 
     <div class="grid grid-5" style="margin-bottom:16px;">
-      <div class="card"><p class="card-title">Vencidos</p><div class="kpi-value" style="font-size:24px;color:var(--vermelho-alerta);">${fmtMoney(totalVencido)}</div><div class="kpi-label">${vencidos.length} parcela(s) em atraso</div></div>
-      <div class="card"><p class="card-title">A receber (30 dias)</p><div class="kpi-value" style="font-size:24px;color:var(--verde-ok);">${fmtMoney(receber30)}</div></div>
-      <div class="card"><p class="card-title">A receber (total)</p><div class="kpi-value" style="font-size:24px;color:var(--verde-ok);">${fmtMoney(totalReceber)}</div><div class="kpi-label">${recebiveis.length} parcela(s)</div></div>
-      <div class="card"><p class="card-title">A pagar (total)</p><div class="kpi-value" style="font-size:24px;color:var(--vermelho-alerta);">${fmtMoney(totalPagar)}</div></div>
-      <div class="card" style="border-color:${acumulado >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};border-width:2px;"><p class="card-title">Saldo acumulado</p><div class="kpi-value" style="font-size:24px;color:${acumulado >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${fmtMoney(acumulado)}</div><div class="kpi-label">projetado (receber − pagar)</div></div>
+      <div class="card"><p class="card-title">Saldo</p><div class="kpi-value" style="font-size:22px;">${fmtMoney(saldoInicial)}</div><button class="btn btn-ghost btn-sm" id="btn-saldo-inicial" style="margin-top:6px;">Ajustar</button></div>
+      <div class="card"><p class="card-title">A receber (total)</p><div class="kpi-value" style="font-size:22px;color:var(--verde-ok);">${fmtMoney(totalReceber)}</div><div class="kpi-label">${recebiveis.length} parcela(s)${totalVencido > 0 ? ` · <span style="color:var(--vermelho-alerta);">${fmtMoney(totalVencido)} vencido</span>` : ''}</div></div>
+      <div class="card"><p class="card-title">A pagar (total)</p><div class="kpi-value" style="font-size:22px;color:var(--vermelho-alerta);">${fmtMoney(totalPagar)}</div></div>
+      <div class="card" style="border-color:${saudeFinal >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};border-width:2px;"><p class="card-title">Saúde financeira</p><div class="kpi-value" style="font-size:22px;color:${saudeFinal >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${fmtMoney(saudeFinal)}</div><div class="kpi-label">caixa após tudo previsto</div></div>
+      <div class="card" style="${menorDia < 0 ? 'border-color:var(--vermelho-alerta);border-width:2px;' : ''}"><p class="card-title">Menor saldo previsto</p><div class="kpi-value" style="font-size:22px;color:${menorDia >= 0 ? 'var(--verde-ok)' : 'var(--vermelho-alerta)'};">${fmtMoney(menorDia)}</div><div class="kpi-label">${menorDia < 0 ? `⚠ ruptura em ${dataMenorDia}` : `pior momento: ${dataMenorDia}`}</div></div>
     </div>
+    ${menorDia < 0 ? `<div class="card" style="margin-bottom:16px;background:#FBEAEA;border-color:var(--vermelho-alerta);"><div style="display:flex;gap:12px;align-items:center;"><span style="font-size:22px;">⚠️</span><div><strong style="color:var(--vermelho-alerta);">Atenção: risco de ficar sem caixa.</strong><div style="font-size:13px;color:#7A2020;margin-top:2px;">Pela projeção diária, o caixa fica negativo (${fmtMoney(menorDia)}) em ${dataMenorDia}. Antecipe recebimentos ou renegocie pagamentos antes dessa data.</div></div></div></div>` : ''}
 
     <div class="card" style="margin-bottom:16px;">
-      <p class="card-title">Projeção — próximos 6 meses</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+        <p class="card-title" style="margin:0;">Projeção de caixa ${fluxoModo === 'diario' ? '— dia a dia' : '— próximos 6 meses'}</p>
+        <div class="tab-bar" style="margin:0;">
+          <button class="tab-chip ${fluxoModo === 'mensal' ? 'active' : ''}" data-fluxomodo="mensal">Mensal</button>
+          <button class="tab-chip ${fluxoModo === 'diario' ? 'active' : ''}" data-fluxomodo="diario">Diário</button>
+        </div>
+      </div>
       <div style="overflow-x:auto;">
       <table>
-        <thead><tr><th>Mês</th><th>Entradas previstas</th><th>Saídas previstas</th><th>Saldo do mês</th><th>Acumulado</th></tr></thead>
-        <tbody>${projRows.join('')}</tbody>
+        <thead><tr><th>${fluxoModo === 'diario' ? 'Dia' : 'Mês'}</th><th>Entradas previstas</th><th>Saídas previstas</th><th>Saldo do período</th><th>Saldo em caixa</th></tr></thead>
+        <tbody>${fluxoModo === 'diario' ? diaRows.join('') : projRows.join('')}</tbody>
       </table>
       </div>
+      ${fluxoModo === 'diario' ? '<div style="font-size:12px;color:#8A929A;margin-top:8px;">Linhas em vermelho indicam dias em que o caixa fica negativo. Use para antecipar recebimentos ou renegociar pagamentos.</div>' : ''}
     </div>
 
     <div class="page-header" style="margin-top:8px;"><h2 style="font-family:var(--font-display);font-size:20px;margin:0;">Recebíveis (boletos e parcelas)</h2></div>
@@ -2055,6 +2286,22 @@ function renderFluxoCaixa() {
       <tbody>${pagRows}</tbody>
     </table></div>`;
 
+  main.querySelectorAll('[data-fluxomodo]').forEach(btn => btn.addEventListener('click', () => {
+    fluxoModo = btn.dataset.fluxomodo;
+    renderFluxoCaixa();
+  }));
+  const btnSaldo = document.getElementById('btn-saldo-inicial');
+  if (btnSaldo) btnSaldo.addEventListener('click', () => {
+    openModal('Ajustar saldo inicial em caixa',
+      `<div class="form-field full"><label>Quanto você tem em caixa hoje? (R$)</label><input name="saldo" type="number" step="0.01" value="${getSaldoInicial()}" required></div>
+       <div class="form-field full"><div style="font-size:12.5px;color:var(--faixa-escura);background:#FBF0D2;padding:8px 12px;border-radius:6px;">Este é o ponto de partida do capital de giro. A projeção soma as entradas e subtrai as saídas previstas a partir deste valor.</div></div>`,
+      (payload) => {
+        setSaldoInicial(payload.saldo);
+        closeModal();
+        toast('Saldo inicial atualizado.');
+        renderFluxoCaixa();
+      });
+  });
   main.querySelectorAll('[data-fintab]').forEach(btn => btn.addEventListener('click', () => {
     financeTab = btn.dataset.fintab;
     loadBaseData();
@@ -2062,17 +2309,20 @@ function renderFluxoCaixa() {
   }));
   main.querySelectorAll('[data-receber-venda]').forEach(btn => btn.addEventListener('click', () => {
     marcarParcelaRecebida(btn.dataset.receberVenda, btn.dataset.parcela);
-    toast('Parcela marcada como recebida.');
+    setSaldoInicial(getSaldoInicial() + (Number(btn.dataset.valor) || 0));
+    toast('Recebimento confirmado — entrou no caixa.');
     renderView('finance');
   }));
   main.querySelectorAll('[data-receber-fin]').forEach(btn => btn.addEventListener('click', () => {
     Store.update('finance', btn.dataset.receberFin, { pago: 'sim' });
-    toast('Recebimento registrado.');
+    setSaldoInicial(getSaldoInicial() + (Number(btn.dataset.valor) || 0));
+    toast('Recebimento confirmado — entrou no caixa.');
     renderView('finance');
   }));
   main.querySelectorAll('[data-pagar-src]').forEach(btn => btn.addEventListener('click', () => {
     Store.update(btn.dataset.pagarSrc, btn.dataset.pagarId, { pago: 'sim' });
-    toast('Pagamento registrado.');
+    setSaldoInicial(getSaldoInicial() - (Number(btn.dataset.valor) || 0));
+    toast('Pagamento confirmado — saiu do caixa.');
     renderView('finance');
   }));
 }
@@ -2314,10 +2564,10 @@ function customerFormFields(c) {
   c = c || {};
   return ''
     + '<div class="form-field full"><label>Nome / Razão social</label><input name="nome" value="' + (c.nome || '') + '" required placeholder="Ex: Construtora ABC Ltda"></div>'
-    + '<div class="form-field"><label>CNPJ / CPF</label><input name="documento" value="' + (c.documento || '') + '"></div>'
-    + '<div class="form-field"><label>Telefone</label><input name="telefone" value="' + (c.telefone || '') + '"></div>'
+    + '<div class="form-field"><label>CNPJ / CPF</label><input name="documento" data-mask="cpfcnpj" data-valida="documento" inputmode="numeric" value="' + (c.documento || '') + '"></div>'
+    + '<div class="form-field"><label>Telefone</label><input name="telefone" data-mask="telefone" inputmode="numeric" value="' + (c.telefone || '') + '"></div>'
     + '<div class="form-field"><label>Contato (pessoa)</label><input name="contato" value="' + (c.contato || '') + '"></div>'
-    + '<div class="form-field"><label>E-mail</label><input name="email" value="' + (c.email || '') + '"></div>'
+    + '<div class="form-field"><label>E-mail</label><input name="email" type="email" data-valida="email" value="' + (c.email || '') + '"></div>'
     + '<div class="form-field full"><label>Endereço</label><input name="endereco" value="' + (c.endereco || '') + '"></div>'
     + '<div class="form-field full"><label>Observações</label><textarea name="observacoes">' + (c.observacoes || '') + '</textarea></div>';
 }
@@ -2386,7 +2636,7 @@ function supplierFormFields(f) {
   f = f || {};
   return ''
     + '<div class="form-field full"><label>Nome / Razão social</label><input name="nome" value="' + (f.nome || '') + '" required placeholder="Ex: Auto Peças Curitiba Ltda"></div>'
-    + '<div class="form-field"><label>CNPJ / CPF</label><input name="documento" value="' + (f.documento || '') + '"></div>'
+    + '<div class="form-field"><label>CNPJ / CPF</label><input name="documento" data-mask="cpfcnpj" data-valida="documento" inputmode="numeric" value="' + (f.documento || '') + '"></div>'
     + '<div class="form-field"><label>Tipo</label><select name="tipo">'
     + '<option value="Peças/Serviços"' + (f.tipo === 'Peças/Serviços' ? ' selected' : '') + '>Peças/Serviços</option>'
     + '<option value="Combustível"' + (f.tipo === 'Combustível' ? ' selected' : '') + '>Combustível</option>'
@@ -2394,7 +2644,7 @@ function supplierFormFields(f) {
     + '<option value="Pneus"' + (f.tipo === 'Pneus' ? ' selected' : '') + '>Pneus</option>'
     + '<option value="Outros"' + (f.tipo === 'Outros' || !f.tipo ? ' selected' : '') + '>Outros</option>'
     + '</select></div>'
-    + '<div class="form-field"><label>Telefone</label><input name="telefone" value="' + (f.telefone || '') + '"></div>'
+    + '<div class="form-field"><label>Telefone</label><input name="telefone" data-mask="telefone" inputmode="numeric" value="' + (f.telefone || '') + '"></div>'
     + '<div class="form-field"><label>Contato (pessoa)</label><input name="contato" value="' + (f.contato || '') + '"></div>'
     + '<div class="form-field full"><label>Endereço</label><input name="endereco" value="' + (f.endereco || '') + '"></div>'
     + '<div class="form-field full"><label>Observações</label><textarea name="observacoes">' + (f.observacoes || '') + '</textarea></div>';
@@ -2494,7 +2744,7 @@ function relComprasItens(ini, fim) {
     if (!dentro(f.data)) return;
     itens.push({
       fornecedor: f.posto || 'Nao informado',
-      categoria: 'Combustivel',
+      categoria: 'Combustível',
       valor: Number(f.valor_total) || 0,
       data: f.data,
       descricao: 'Abastecimento ' + ((Store.get('vehicles', f.vehicle_id) || {}).placa || '') + ' (' + (f.litros || 0) + ' L)'
@@ -2504,7 +2754,7 @@ function relComprasItens(ini, fim) {
     if (!dentro(m.data) || !(Number(m.custo) > 0)) return;
     itens.push({
       fornecedor: m.oficina || 'Nao informado',
-      categoria: 'Manutencao',
+      categoria: 'Manutenção',
       valor: Number(m.custo) || 0,
       data: m.data,
       descricao: (m.descricao || 'Manutencao') + ' — ' + ((Store.get('vehicles', m.vehicle_id) || {}).placa || '')
@@ -2594,18 +2844,19 @@ function renderRelatorios() {
   abc.forEach((x, i) => {
     const w = total > 0 ? Math.round(x.valor / abc[0].valor * 100) : 0;
     const cor = relClasseCor(x.classe);
+    const classeCss = x.classe === 'A' ? 'abc-a' : (x.classe === 'B' ? 'abc-b' : 'abc-c');
     linhas += ''
-      + '<tr data-drill="' + encodeURIComponent(x.chave) + '" style="cursor:pointer;">'
-      + '<td style="color:#8A929A;">' + (i + 1) + '</td>'
-      + '<td><strong style="color:var(--asfalto);">' + x.chave + '</strong> <span style="font-size:11px;color:var(--faixa-escura);">▸ ver detalhes</span></td>'
-      + '<td><div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;background:#EEF0F1;border-radius:4px;height:8px;min-width:60px;overflow:hidden;"><div style="width:' + w + '%;height:100%;background:' + cor + ';"></div></div><span style="font-weight:600;white-space:nowrap;">' + fmtMoney(x.valor) + '</span></div></td>'
-      + '<td>' + x.qtd + '</td>'
-      + '<td>' + x.pct.toFixed(1) + '%</td>'
-      + '<td>' + x.pctAcum.toFixed(1) + '%</td>'
-      + '<td><span class="status-pill" style="background:' + cor + '22;color:' + cor + ';">' + x.classe + '</span></td>'
+      + '<tr class="rel-row-clic" data-drill="' + encodeURIComponent(x.chave) + '">'
+      + '<td style="color:#A2A9AF;font-variant-numeric:tabular-nums;">' + (i + 1) + '</td>'
+      + '<td><strong style="color:var(--asfalto);">' + x.chave + '</strong> <span style="font-size:10.5px;color:var(--faixa-escura);opacity:.85;">▸ detalhes</span></td>'
+      + '<td><div style="display:flex;align-items:center;gap:10px;"><div class="rel-bar-track"><div class="rel-bar-fill" style="width:' + w + '%;background:' + cor + ';"></div></div><span style="font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;">' + fmtMoney(x.valor) + '</span></div></td>'
+      + '<td style="font-variant-numeric:tabular-nums;">' + x.qtd + '</td>'
+      + '<td style="font-variant-numeric:tabular-nums;">' + x.pct.toFixed(1) + '%</td>'
+      + '<td style="font-variant-numeric:tabular-nums;color:#6B747B;">' + x.pctAcum.toFixed(1) + '%</td>'
+      + '<td><span class="abc-badge ' + classeCss + '">' + x.classe + '</span></td>'
       + '</tr>';
   });
-  if (!linhas) linhas = '<tr><td colspan="7" class="empty-state">Sem dados no periodo selecionado.</td></tr>';
+  if (!linhas) linhas = '<tr><td colspan="7" class="empty-state">Sem dados no período selecionado.</td></tr>';
 
   // chips de dimensao
   let dimChips = '';
@@ -2617,7 +2868,7 @@ function renderRelatorios() {
   const corTotal = ehVendas ? 'var(--verde-ok)' : 'var(--vermelho-alerta)';
 
   let html = '';
-  html += '<div class="page-header"><div><h1 class="page-title">Relatorios</h1><div class="page-sub">Analises interativas de vendas e compras — Curva ABC e rankings</div></div></div>';
+  html += '<div class="page-header"><div><h1 class="page-title">Relatórios</h1><div class="page-sub">Análises interativas de vendas e compras — Curva ABC e rankings</div></div></div>';
 
   // abas Vendas / Compras
   html += '<div class="tab-bar">';
@@ -2631,17 +2882,17 @@ function renderRelatorios() {
   html += '<div class="form-field"><label>Ate</label><input type="date" id="rel-fim" value="' + fim + '"></div>';
   html += '<button class="btn btn-primary btn-sm" id="rel-aplicar" style="height:37px;">Aplicar</button>';
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">';
-  html += '<button class="tab-chip" data-relatalho="mes">Este mes</button>';
-  html += '<button class="tab-chip" data-relatalho="3m">Ultimos 3 meses</button>';
-  html += '<button class="tab-chip" data-relatalho="6m">Ultimos 6 meses</button>';
+  html += '<button class="tab-chip" data-relatalho="mes">Este mês</button>';
+  html += '<button class="tab-chip" data-relatalho="3m">Últimos 3 meses</button>';
+  html += '<button class="tab-chip" data-relatalho="6m">Últimos 6 meses</button>';
   html += '<button class="tab-chip" data-relatalho="ano">Este ano</button>';
   html += '</div></div></div>';
 
   // KPIs
   html += '<div class="grid grid-4" style="margin-bottom:16px;">';
   html += '<div class="card"><p class="card-title">' + (ehVendas ? 'Faturamento' : 'Total comprado') + '</p><div class="kpi-value" style="font-size:26px;color:' + corTotal + ';">' + fmtMoney(total) + '</div></div>';
-  html += '<div class="card"><p class="card-title">' + (ehVendas ? 'Fretes' : 'Compras') + '</p><div class="kpi-value" style="font-size:26px;">' + qtd + '</div><div class="kpi-label">registros no periodo</div></div>';
-  html += '<div class="card"><p class="card-title">Ticket medio</p><div class="kpi-value" style="font-size:26px;">' + fmtMoney(ticket) + '</div></div>';
+  html += '<div class="card"><p class="card-title">' + (ehVendas ? 'Fretes' : 'Compras') + '</p><div class="kpi-value" style="font-size:26px;">' + qtd + '</div><div class="kpi-label">registros no período</div></div>';
+  html += '<div class="card"><p class="card-title">Ticket médio</p><div class="kpi-value" style="font-size:26px;">' + fmtMoney(ticket) + '</div></div>';
   html += '<div class="card"><p class="card-title">' + tituloDim + 's distintos</p><div class="kpi-value" style="font-size:26px;">' + grupos.length + '</div></div>';
   html += '</div>';
 
@@ -2650,7 +2901,7 @@ function renderRelatorios() {
   html += '<div class="card" style="border-left:4px solid #3E9B5C;"><p class="card-title">Classe A</p><div class="kpi-value" style="font-size:22px;color:#3E9B5C;">' + fmtMoney(valA) + '</div><div class="kpi-label">' + contA.length + ' ' + tituloDim.toLowerCase() + '(s) — ' + (total > 0 ? Math.round(valA / total * 100) : 0) + '% do valor</div></div>';
   html += '<div class="card" style="border-left:4px solid #F2B705;"><p class="card-title">Classe B</p><div class="kpi-value" style="font-size:22px;color:#C99A00;">' + fmtMoney(valB) + '</div><div class="kpi-label">' + contB.length + ' ' + tituloDim.toLowerCase() + '(s) — ' + (total > 0 ? Math.round(valB / total * 100) : 0) + '% do valor</div></div>';
   html += '<div class="card" style="border-left:4px solid #8A929A;"><p class="card-title">Classe C</p><div class="kpi-value" style="font-size:22px;color:#6B747B;">' + fmtMoney(valC) + '</div><div class="kpi-label">' + contC.length + ' ' + tituloDim.toLowerCase() + '(s) — ' + (total > 0 ? Math.round(valC / total * 100) : 0) + '% do valor</div></div>';
-  html += '<div class="card"><p class="card-title">Como ler</p><div style="font-size:12px;color:#6B747B;line-height:1.5;">A = ate 80% do valor (prioridade). B = 80–95%. C = os 5% finais. Regra 80/20.</div></div>';
+  html += '<div class="card"><p class="card-title">Como ler</p><div style="font-size:12px;color:#6B747B;line-height:1.5;">A = até 80% do valor (prioridade). B = 80–95%. C = os 5% finais. Regra 80/20.</div></div>';
   html += '</div>';
 
   // seletor de dimensao + acoes
@@ -2750,7 +3001,7 @@ function renderRelatorios() {
       relatorioEstado.fim = f;
       renderRelatorios();
     } else {
-      toast('Verifique as datas do periodo.', 'error');
+      toast('Verifique as datas do período.', 'error');
     }
   });
   // atalhos de periodo
@@ -2821,48 +3072,60 @@ function exportarRelatorioXLSX(abc, grupos, itens, dim, tituloDim, ehVendas, ini
 
   // Aba Resumo = curva ABC
   const resumo = [];
-  resumo.push([(ehVendas ? 'Relatorio de Vendas' : 'Relatorio de Compras') + ' - Curva ABC por ' + tituloDim]);
-  resumo.push(['Periodo: ' + fmtDate(ini) + ' a ' + fmtDate(fim)]);
+  resumo.push([(ehVendas ? 'Relatório de Vendas' : 'Relatório de Compras') + ' — Curva ABC por ' + tituloDim]);
+  resumo.push(['Período: ' + fmtDate(ini) + ' a ' + fmtDate(fim)]);
   resumo.push([]);
   resumo.push(['#', tituloDim, 'Valor', 'Qtd', '%', '% acumulado', 'Classe']);
+  const headerResumo = resumo.length - 1;
   abc.forEach((x, i) => {
     resumo.push([i + 1, x.chave, Math.round(x.valor * 100) / 100, x.qtd, Math.round(x.pct * 10) / 10, Math.round(x.pctAcum * 10) / 10, x.classe]);
   });
   const totalGeral = abc.reduce((s, x) => s + x.valor, 0);
   resumo.push([]);
   resumo.push(['', 'TOTAL', Math.round(totalGeral * 100) / 100, abc.reduce((s, x) => s + x.qtd, 0), '', '', '']);
-  abas.push({ nome: _sheetName('Resumo ABC', usados), linhas: resumo });
+  abas.push({
+    nome: _sheetName('Resumo ABC', usados),
+    linhas: resumo,
+    opts: {
+      titleRows: [0], headerRows: [headerResumo], totalRows: [resumo.length - 1],
+      moneyCols: [2], colWidths: [5, 34, 16, 8, 8, 13, 9]
+    }
+  });
 
   // Uma aba por grupo (cliente/fornecedor), com o detalhamento das transacoes
   grupos.forEach(g => {
-    const itensGrupo = itens.filter(it => (it[dim] || 'Nao informado') === g.chave)
+    const itensGrupo = itens.filter(it => (it[dim] || 'Não informado') === g.chave)
       .sort((a, b) => (a.data || '').localeCompare(b.data || ''));
     const linhas = [];
     linhas.push([tituloDim + ': ' + g.chave]);
     linhas.push(['Total: ' + fmtMoney(g.valor) + '  |  ' + g.qtd + (ehVendas ? ' venda(s)' : ' compra(s)')]);
     linhas.push([]);
+    const headerIdx = linhas.length;
+    let opts;
     if (ehVendas) {
       linhas.push(['Data', 'Origem', 'Destino', 'Carga', 'Peso (kg)', 'Entregas', 'Forma pgto', 'Status', 'Frete (R$)', 'Ajudantes (R$)', 'Total (R$)']);
       itensGrupo.forEach(it => {
         linhas.push([
-          it.data,
+          fmtDate(it.data),
           it.origem !== 'Sem origem' ? it.origem : '',
           it.destino,
           it.descricao || '',
           it.peso || 0,
           it.qtdEntregas || 1,
           it.forma,
-          it.status === 'concluido' ? 'Concluido' : 'Fechado',
+          it.status === 'concluido' ? 'Concluído' : 'Fechado',
           Math.round((it.valorFrete || 0) * 100) / 100,
           Math.round((it.valorAjudante || 0) * 100) / 100,
           Math.round(it.valor * 100) / 100
         ]);
       });
+      opts = { moneyCols: [8, 9, 10], colWidths: [12, 16, 18, 26, 10, 9, 13, 11, 14, 15, 14] };
     } else {
-      linhas.push(['Data', 'Categoria', 'Descricao', 'Valor (R$)']);
+      linhas.push(['Data', 'Categoria', 'Descrição', 'Valor (R$)']);
       itensGrupo.forEach(it => {
-        linhas.push([it.data, it.categoria, it.descricao || '', Math.round(it.valor * 100) / 100]);
+        linhas.push([fmtDate(it.data), it.categoria, it.descricao || '', Math.round(it.valor * 100) / 100]);
       });
+      opts = { moneyCols: [3], colWidths: [12, 18, 40, 14] };
     }
     linhas.push([]);
     let colTotal;
@@ -2874,10 +3137,13 @@ function exportarRelatorioXLSX(abc, grupos, itens, dim, tituloDim, ehVendas, ini
       colTotal = ['', '', 'TOTAL', Math.round(g.valor * 100) / 100];
     }
     linhas.push(colTotal);
-    abas.push({ nome: _sheetName(g.chave, usados), linhas: linhas });
+    opts.titleRows = [0];
+    opts.headerRows = [headerIdx];
+    opts.totalRows = [linhas.length - 1];
+    abas.push({ nome: _sheetName(g.chave, usados), linhas: linhas, opts: opts });
   });
 
-  if (abas.length <= 1) { toast('Sem dados no periodo para exportar.', 'error'); return; }
+  if (abas.length <= 1) { toast('Sem dados no período para exportar.', 'error'); return; }
 
   const bytes = gerarXLSX(abas);
   const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -2916,7 +3182,7 @@ function imprimirRelatorio(abc, tituloDim, ehVendas, ini, fim, total, ticket, qt
   doc += '<div class="kpis">';
   doc += '<div class="kpi"><span>' + (ehVendas ? 'Faturamento' : 'Total comprado') + '</span><b>' + fmtMoney(total) + '</b></div>';
   doc += '<div class="kpi"><span>Registros</span><b>' + qtd + '</b></div>';
-  doc += '<div class="kpi"><span>Ticket medio</span><b>' + fmtMoney(ticket) + '</b></div>';
+  doc += '<div class="kpi"><span>Ticket médio</span><b>' + fmtMoney(ticket) + '</b></div>';
   doc += '<div class="kpi"><span>Classe A</span><b style="color:#3E9B5C;">' + fmtMoney(valA) + ' (' + nA + ')</b></div>';
   doc += '<div class="kpi"><span>Classe B</span><b style="color:#C99A00;">' + fmtMoney(valB) + ' (' + nB + ')</b></div>';
   doc += '<div class="kpi"><span>Classe C</span><b style="color:#8A929A;">' + fmtMoney(valC) + ' (' + nC + ')</b></div>';
@@ -3035,27 +3301,94 @@ function _colLetra(idx) {
 }
 
 // Monta uma planilha a partir de linhas (array de arrays). Cada celula: numero -> numerica; string -> texto
-function _sheetXml(linhas) {
+// opts: { headerRows:[idx], totalRows:[idx], moneyCols:[idx], colWidths:[..] }
+function _sheetXml(linhas, opts) {
+  opts = opts || {};
+  var headerRows = opts.headerRows || [];
+  var totalRows = opts.totalRows || [];
+  var moneyCols = opts.moneyCols || [];
+  var titleRows = opts.titleRows || [];
   var rows = '';
   for (var r = 0; r < linhas.length; r++) {
     var cells = '';
+    var ehHeader = headerRows.indexOf(r) !== -1;
+    var ehTotal = totalRows.indexOf(r) !== -1;
+    var ehTitle = titleRows.indexOf(r) !== -1;
     for (var c = 0; c < linhas[r].length; c++) {
       var v = linhas[r][c];
       var ref = _colLetra(c) + (r + 1);
+      var ehMoney = moneyCols.indexOf(c) !== -1;
+      // define o índice de estilo (s) conforme o tipo de célula
+      var s = 0;
+      if (ehTitle) s = 5;
+      else if (ehHeader) s = 1;
+      else if (ehTotal) s = ehMoney ? 4 : 3;
+      else if (ehMoney) s = 2;
       if (typeof v === 'number' && isFinite(v)) {
-        cells += '<c r="' + ref + '"><v>' + v + '</v></c>';
+        cells += '<c r="' + ref + '" s="' + s + '"><v>' + v + '</v></c>';
       } else {
-        cells += '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">' + _xmlEsc(v) + '</t></is></c>';
+        cells += '<c r="' + ref + '" s="' + s + '" t="inlineStr"><is><t xml:space="preserve">' + _xmlEsc(v) + '</t></is></c>';
       }
     }
-    rows += '<row r="' + (r + 1) + '">' + cells + '</row>';
+    rows += '<row r="' + (r + 1) + '"' + (ehHeader || ehTotal ? ' ht="18" customHeight="1"' : '') + '>' + cells + '</row>';
   }
+  // larguras de coluna
+  var colsXml = '';
+  if (opts.colWidths && opts.colWidths.length) {
+    colsXml = '<cols>';
+    for (var i2 = 0; i2 < opts.colWidths.length; i2++) {
+      colsXml += '<col min="' + (i2 + 1) + '" max="' + (i2 + 1) + '" width="' + opts.colWidths[i2] + '" customWidth="1"/>';
+    }
+    colsXml += '</cols>';
+  }
+  // sheetView: sem linhas de grade; congela cabeçalho se houver
+  var paneXml = '';
+  if (headerRows.length) {
+    var hr = Math.max.apply(null, headerRows) + 1;
+    paneXml = '<pane ySplit="' + hr + '" topLeftCell="A' + (hr + 1) + '" activePane="bottomLeft" state="frozen"/>';
+  }
+  var freeze = '<sheetViews><sheetView showGridLines="0" workbookViewId="0">' + paneXml + '</sheetView></sheetViews>';
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'
-    + rows + '</sheetData></worksheet>';
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + freeze + colsXml
+    + '<sheetData>' + rows + '</sheetData></worksheet>';
 }
 
-// abas = [{nome, linhas}] -> Uint8Array do xlsx
+// styles.xml com: header (fundo escuro, branco, bold), moeda, total, título
+function _stylesXml() {
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;R$&quot;\\ #,##0.00"/></numFmts>'
+    + '<fonts count="4">'
+    + '<font><sz val="11"/><color rgb="FF1E2124"/><name val="Calibri"/></font>'          // 0 normal
+    + '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>'       // 1 header branco
+    + '<font><b/><sz val="11"/><color rgb="FF1E2124"/><name val="Calibri"/></font>'       // 2 bold escuro
+    + '<font><b/><sz val="13"/><color rgb="FFC1212D"/><name val="Calibri"/></font>'       // 3 título vermelho
+    + '</fonts>'
+    + '<fills count="4">'
+    + '<fill><patternFill patternType="none"/></fill>'                                     // 0
+    + '<fill><patternFill patternType="gray125"/></fill>'                                  // 1 (reservado)
+    + '<fill><patternFill patternType="solid"><fgColor rgb="FF1E2124"/></patternFill></fill>' // 2 header escuro
+    + '<fill><patternFill patternType="solid"><fgColor rgb="FFF2F3F4"/></patternFill></fill>' // 3 total cinza
+    + '</fills>'
+    + '<borders count="2">'
+    + '<border><left/><right/><top/><bottom/><diagonal/></border>'                          // 0
+    + '<border><left/><right/><top style="thin"><color rgb="FFB0B6BB"/></top><bottom/><diagonal/></border>' // 1 topo
+    + '</borders>'
+    + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    + '<cellXfs count="6">'
+    + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'                                       // 0 normal
+    + '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center"/></xf>' // 1 header
+    + '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'               // 2 moeda
+    + '<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>' // 3 total texto
+    + '<xf numFmtId="164" fontId="2" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>' // 4 total moeda
+    + '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>'                         // 5 título
+    + '</cellXfs>'
+    + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
+    + '</styleSheet>';
+}
+
+// abas = [{nome, linhas, opts}] -> Uint8Array do xlsx
 function gerarXLSX(abas) {
   var files = [];
   // [Content_Types].xml
@@ -3069,6 +3402,7 @@ function gerarXLSX(abas) {
     + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
     + '<Default Extension="xml" ContentType="application/xml"/>'
     + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+    + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
     + ov + '</Types>') });
   // _rels/.rels
   files.push({ name: '_rels/.rels', bytes: _strToBytes(
@@ -3083,6 +3417,9 @@ function gerarXLSX(abas) {
     sheetsXml += '<sheet name="' + _xmlEsc(abas[j].nome) + '" sheetId="' + (j + 1) + '" r:id="rId' + (j + 1) + '"/>';
     relsXml += '<Relationship Id="rId' + (j + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (j + 1) + '.xml"/>';
   }
+  // relação extra para styles.xml
+  var stylesRelId = 'rId' + (abas.length + 1);
+  relsXml += '<Relationship Id="' + stylesRelId + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>';
   files.push({ name: 'xl/workbook.xml', bytes: _strToBytes(
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
@@ -3092,9 +3429,11 @@ function gerarXLSX(abas) {
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
     + relsXml + '</Relationships>') });
+  // xl/styles.xml
+  files.push({ name: 'xl/styles.xml', bytes: _strToBytes(_stylesXml()) });
   // sheets
   for (var k = 0; k < abas.length; k++) {
-    files.push({ name: 'xl/worksheets/sheet' + (k + 1) + '.xml', bytes: _strToBytes(_sheetXml(abas[k].linhas)) });
+    files.push({ name: 'xl/worksheets/sheet' + (k + 1) + '.xml', bytes: _strToBytes(_sheetXml(abas[k].linhas, abas[k].opts)) });
   }
   return _zip(files);
 }
